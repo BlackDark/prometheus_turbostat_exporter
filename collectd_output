@@ -1,0 +1,71 @@
+# HELP collectd_turbostat_frequency write_prometheus plugin: 'turbostat' Type: 'frequency', Dstype: 'gauge', Dsname: 'value'
+# TYPE collectd_turbostat_frequency gauge
+collectd_turbostat_frequency{turbostat="cpu00",type="average",instance="t490-broken.lan"} 305.358107874458 1729978319948
+collectd_turbostat_frequency{turbostat="cpu00",type="busy",instance="t490-broken.lan"} 2982.11509887617 1729978319948
+collectd_turbostat_frequency{turbostat="cpu01",type="average",instance="t490-broken.lan"} 799.936404699295 1729978319948
+collectd_turbostat_frequency{turbostat="cpu01",type="busy",instance="t490-broken.lan"} 3520.3051013941 1729978319948
+collectd_turbostat_frequency{turbostat="cpu02",type="average",instance="t490-broken.lan"} 381.86286330781 1729978319948
+collectd_turbostat_frequency{turbostat="cpu02",type="busy",instance="t490-broken.lan"} 3154.34517434258 1729978319948
+collectd_turbostat_frequency{turbostat="cpu03",type="average",instance="t490-broken.lan"} 207.103022977476 1729978319948
+collectd_turbostat_frequency{turbostat="cpu03",type="busy",instance="t490-broken.lan"} 3034.816450579 1729978319948
+collectd_turbostat_frequency{turbostat="cpu04",type="average",instance="t490-broken.lan"} 327.534908853534 1729978319948
+collectd_turbostat_frequency{turbostat="cpu04",type="busy",instance="t490-broken.lan"} 3477.3760771379 1729978319948
+collectd_turbostat_frequency{turbostat="cpu05",type="average",instance="t490-broken.lan"} 497.297559492455 1729978319948
+collectd_turbostat_frequency{turbostat="cpu05",type="busy",instance="t490-broken.lan"} 3220.79594161177 1729978319948
+collectd_turbostat_frequency{turbostat="cpu06",type="average",instance="t490-broken.lan"} 96.9444334229556 1729978319948
+collectd_turbostat_frequency{turbostat="cpu06",type="busy",instance="t490-broken.lan"} 3417.09865635175 1729978319948
+collectd_turbostat_frequency{turbostat="cpu07",type="average",instance="t490-broken.lan"} 439.877744146265 1729978319948
+collectd_turbostat_frequency{turbostat="cpu07",type="busy",instance="t490-broken.lan"} 3424.85835619477 1729978319948
+# HELP collectd_turbostat_gauge write_prometheus plugin: 'turbostat' Type: 'gauge', Dstype: 'gauge', Dsname: 'value'
+# TYPE collectd_turbostat_gauge gauge
+collectd_turbostat_gauge{turbostat="cpu00",type="TSC",instance="t490-broken.lan"} 1895.89501135795 1729978319948
+collectd_turbostat_gauge{turbostat="cpu01",type="TSC",instance="t490-broken.lan"} 1895.92529856688 1729978319948
+collectd_turbostat_gauge{turbostat="cpu02",type="TSC",instance="t490-broken.lan"} 1895.94580981215 1729978319948
+collectd_turbostat_gauge{turbostat="cpu03",type="TSC",instance="t490-broken.lan"} 1895.97868619958 1729978319948
+collectd_turbostat_gauge{turbostat="cpu04",type="TSC",instance="t490-broken.lan"} 1895.91007596917 1729978319948
+collectd_turbostat_gauge{turbostat="cpu05",type="TSC",instance="t490-broken.lan"} 1895.93667429369 1729978319948
+collectd_turbostat_gauge{turbostat="cpu06",type="TSC",instance="t490-broken.lan"} 1895.95762230159 1729978319948
+collectd_turbostat_gauge{turbostat="cpu07",type="TSC",instance="t490-broken.lan"} 1895.99628319416 1729978319948
+# HELP collectd_turbostat_percent write_prometheus plugin: 'turbostat' Type: 'percent', Dstype: 'gauge', Dsname: 'value'
+# TYPE collectd_turbostat_percent gauge
+collectd_turbostat_percent{turbostat="core00",type="c3",instance="t490-broken.lan"} 2.54843960813392 1729978319948
+collectd_turbostat_percent{turbostat="core00",type="c7",instance="t490-broken.lan"} 30.0721342508305 1729978319948
+collectd_turbostat_percent{turbostat="core01",type="c3",instance="t490-broken.lan"} 2.02385745432573 1729978319948
+collectd_turbostat_percent{turbostat="core01",type="c7",instance="t490-broken.lan"} 34.407366609294 1729978319948
+collectd_turbostat_percent{turbostat="core02",type="c3",instance="t490-broken.lan"} 1.01390720480812 1729978319948
+collectd_turbostat_percent{turbostat="core02",type="c7",instance="t490-broken.lan"} 55.6851034154137 1729978319948
+collectd_turbostat_percent{turbostat="core03",type="c3",instance="t490-broken.lan"} 1.4422132970378 1729978319948
+collectd_turbostat_percent{turbostat="core03",type="c7",instance="t490-broken.lan"} 52.7833927936161 1729978319948
+collectd_turbostat_percent{turbostat="cpu00",type="c0",instance="t490-broken.lan"} 10.2396486302469 1729978319948
+collectd_turbostat_percent{turbostat="cpu00",type="c1",instance="t490-broken.lan"} 57.1397775107887 1729978319948
+collectd_turbostat_percent{turbostat="cpu01",type="c0",instance="t490-broken.lan"} 22.7234964487171 1729978319948
+collectd_turbostat_percent{turbostat="cpu01",type="c1",instance="t490-broken.lan"} 40.8452794876632 1729978319948
+collectd_turbostat_percent{turbostat="cpu02",type="c0",instance="t490-broken.lan"} 12.1059314121321 1729978319948
+collectd_turbostat_percent{turbostat="cpu02",type="c1",instance="t490-broken.lan"} 31.1950579676461 1729978319948
+collectd_turbostat_percent{turbostat="cpu03",type="c0",instance="t490-broken.lan"} 6.82423554603981 1729978319948
+collectd_turbostat_percent{turbostat="cpu03",type="c1",instance="t490-broken.lan"} 38.9501583633063 1729978319948
+collectd_turbostat_percent{turbostat="cpu04",type="c0",instance="t490-broken.lan"} 9.41902462051548 1729978319948
+collectd_turbostat_percent{turbostat="cpu04",type="c1",instance="t490-broken.lan"} 57.9606607186062 1729978319948
+collectd_turbostat_percent{turbostat="cpu05",type="c0",instance="t490-broken.lan"} 15.4402069708146 1729978319948
+collectd_turbostat_percent{turbostat="cpu05",type="c1",instance="t490-broken.lan"} 48.1287875549615 1729978319948
+collectd_turbostat_percent{turbostat="cpu06",type="c0",instance="t490-broken.lan"} 2.83703934748135 1729978319948
+collectd_turbostat_percent{turbostat="cpu06",type="c1",instance="t490-broken.lan"} 40.4643032872729 1729978319948
+collectd_turbostat_percent{turbostat="cpu07",type="c0",instance="t490-broken.lan"} 12.8436769757391 1729978319948
+collectd_turbostat_percent{turbostat="cpu07",type="c1",instance="t490-broken.lan"} 32.9312202086951 1729978319948
+collectd_turbostat_percent{turbostat="pkg00",type="pc10",instance="t490-broken.lan"} 0 1729978319948
+collectd_turbostat_percent{turbostat="pkg00",type="pc2",instance="t490-broken.lan"} 4.01113943753729 1729978319948
+collectd_turbostat_percent{turbostat="pkg00",type="pc3",instance="t490-broken.lan"} 1.8126906146603 1729978319948
+collectd_turbostat_percent{turbostat="pkg00",type="pc6",instance="t490-broken.lan"} 0.815056468806811 1729978319948
+collectd_turbostat_percent{turbostat="pkg00",type="pc7",instance="t490-broken.lan"} 0.00929428708974994 1729978319948
+collectd_turbostat_percent{turbostat="pkg00",type="pc8",instance="t490-broken.lan"} 11.1681646768846 1729978319948
+collectd_turbostat_percent{turbostat="pkg00",type="pc9",instance="t490-broken.lan"} 0 1729978319948
+# HELP collectd_turbostat_temperature write_prometheus plugin: 'turbostat' Type: 'temperature', Dstype: 'gauge', Dsname: 'value'
+# TYPE collectd_turbostat_temperature gauge
+collectd_turbostat_temperature{turbostat="core00",instance="t490-broken.lan"} 46 1729978319948
+collectd_turbostat_temperature{turbostat="core01",instance="t490-broken.lan"} 46 1729978319948
+collectd_turbostat_temperature{turbostat="core02",instance="t490-broken.lan"} 47 1729978319948
+collectd_turbostat_temperature{turbostat="core03",instance="t490-broken.lan"} 47 1729978319948
+collectd_turbostat_temperature{turbostat="pkg00",instance="t490-broken.lan"} 47 1729978319948
+collectd_turbostat_temperature{turbostat="pkg00",type="tcc_activation",instance="t490-broken.lan"} 100 1729978319948
+
+# collectd/write_prometheus 5.12.0.git at t490-broken.lan
