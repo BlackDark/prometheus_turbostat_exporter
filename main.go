@@ -266,6 +266,7 @@ func executeProgram(collectTimeSeconds int) bytes.Reader {
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
+	cmd.Stderr = &out
 
 	err := cmd.Run()
 	if err != nil {
