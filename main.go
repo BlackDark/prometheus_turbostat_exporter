@@ -272,6 +272,8 @@ func executeProgram(collectTimeSeconds int) bytes.Reader {
 		log.Fatalf("Failed to run turbostat: %v", err)
 	}
 
+	cmd.Wait()
+
 	lines := bytes.Split(out.Bytes(), []byte("\n"))
 
 	log.Debugf("Command output: %s", lines)
