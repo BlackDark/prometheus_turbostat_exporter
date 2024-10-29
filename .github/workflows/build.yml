@@ -24,9 +24,9 @@ jobs:
         run: go get .
       - name: Build
         run: |
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o myapp-${{ matrix.goos }}-${{ matrix.goarch }}
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o turbostat-exporter-${{ matrix.goos }}-${{ matrix.goarch }}
       - name: Archive binaries
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: myapp-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: myapp-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: turbostat-exporter-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: turbostat-exporter-${{ matrix.goos }}-${{ matrix.goarch }}

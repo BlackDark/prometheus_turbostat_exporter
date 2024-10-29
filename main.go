@@ -12,13 +12,14 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"bufio"
 
 	"github.com/gocarina/gocsv"
 
 	"net/http"
+
+	"github.com/joho/godotenv"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -248,8 +249,14 @@ func buildMetricList(reader io.Reader) []metricMapping {
 }
 
 func executeProgram(collectTimeSeconds int) bytes.Reader {
-	cmd := exec.Command("cat", "prox.csv")
-	time.Sleep(time.Duration(collectTimeSeconds) * time.Second)
+	var cmd *exec.Cmd
+
+	if isCommandCat {
+		cmd = exec.Command("cat", "prox.csv")
+	} else {
+		cmd = exec.Command("turbostat", "--quiet", "sleep", strconv.Itoa(collectTimeSeconds))
+	}
+
 	var out bytes.Buffer
 	cmd.Stdout = &out
 
@@ -355,15 +362,23 @@ func (h helloWorldhandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 var listOfMetrics []metricMapping = nil
 var defaultSleepTimer int = 5
+var isCommandCat = false
 
 func main() {
+	godotenv.Load()
+
 	fmt.Println("Prometheus turbostat exporter - created by BlackDark")
 
 	// use the default if not set
-	val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEFAULT_COLLECT_SECONDS")
-	if ok {
+	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEFAULT_COLLECT_SECONDS"); ok {
 		if convertVal, err := strconv.Atoi(val); err == nil {
 			defaultSleepTimer = convertVal
+		}
+	}
+
+	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEBUG_CAT_EXEC"); ok {
+		if val == "true" {
+			isCommandCat = true
 		}
 	}
 
