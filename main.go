@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"log"
 	"maps"
 	"os"
 	"os/exec"
@@ -24,6 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
 )
 
 type TurbostatType string
@@ -62,12 +62,18 @@ func buildMetricList(reader io.Reader) []metricMapping {
 
 	coreIndices := []int{}
 	cpuIndices := []int{}
+	s_union := map[int]int{}
 
 	for i := 1; i < dataLen; i++ {
-		if data[i-1]["CCore"] != data[i]["CCore"] {
-			coreIndices = append(coreIndices, i)
+		coreValue := int(data[i]["Core"].(float64))
+		if _, ok := s_union[coreValue]; !ok {
+			s_union[coreValue] = i
 		}
 		cpuIndices = append(cpuIndices, i)
+	}
+
+	for _, v := range s_union {
+		coreIndices = append(coreIndices, v)
 	}
 
 	log.Printf("Total cores %d, Total cpus (threads) %d\n", len(coreIndices), len(cpuIndices))
@@ -107,7 +113,7 @@ func buildMetricList(reader io.Reader) []metricMapping {
 		}
 	}
 
-	log.Printf("DEBUG: Extracted following header indices for states: Total %d, Core %d, CPU %d, Pkg %d", headerTotalIndices, headerCoreIndices, headerCpuIndices, headerPkgIndices)
+	log.Debugf("Extracted following header indices for states: Total %d, Core %d, CPU %d, Pkg %d", headerTotalIndices, headerCoreIndices, headerCpuIndices, headerPkgIndices)
 
 	for _, i := range headerTotalIndices {
 		val := headers[i]
@@ -256,6 +262,7 @@ func executeProgram(collectTimeSeconds int) bytes.Reader {
 	} else {
 		cmd = exec.Command("turbostat", "--quiet", "sleep", strconv.Itoa(collectTimeSeconds))
 	}
+	log.Debugf("Executing command: %s", cmd.Args)
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -266,6 +273,8 @@ func executeProgram(collectTimeSeconds int) bytes.Reader {
 	}
 
 	lines := bytes.Split(out.Bytes(), []byte("\n"))
+
+	log.Debugf("Command output: %s", lines)
 
 	if len(lines) < 2 {
 		log.Println("No data to parse")
@@ -366,6 +375,15 @@ var isCommandCat = false
 
 func main() {
 	godotenv.Load()
+
+	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_LOG_LEVEL"); ok {
+		switch val {
+		case "debug":
+			log.SetLevel(log.DebugLevel)
+		default:
+			log.SetLevel(log.InfoLevel)
+		}
+	}
 
 	fmt.Println("Prometheus turbostat exporter - created by BlackDark")
 
