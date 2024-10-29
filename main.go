@@ -283,7 +283,11 @@ func executeProgram(collectTimeSeconds int) bytes.Reader {
 		log.Println("No data to parse")
 	}
 
-	reader := bytes.NewReader(out.Bytes())
+	if !strings.HasPrefix(string(lines[0]), "Core") {
+		lines = lines[1:]
+	}
+
+	reader := bytes.NewReader(bytes.Join(lines, []byte("\n")))
 
 	return *reader
 }
