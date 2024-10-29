@@ -337,6 +337,211 @@ func newFooCollector2(reader io.Reader) *fooCollector {
 	}
 }
 
+func buildMetricList(reader io.Reader) []metricMapping {
+	headers, _ := parseOutput(reader)
+	headersLen := len(headers)
+
+	log.Printf("Extracted %d headers which will be extracted\n", headersLen)
+	log.Printf("Following headers will be used: %s \n", headers)
+
+	pollIndex := slices.Index(headers, "POLL")
+	pollPIndex := slices.Index(headers, "POLL%")
+	firstCpuPercent := slices.IndexFunc(headers, func(n string) bool {
+		return strings.HasPrefix(n, "CPU%")
+	})
+	coreTmpIndex := slices.Index(headers, "CoreTmp")
+	firstPkgState := slices.Index(headers, "CPUGFX%") + 1
+	lastPkgState := slices.Index(headers, "CPU%LPI") - 1
+
+	m := make(map[string]prometheus.Metric)
+	listOfMetrics := []metricMapping{}
+
+	// total_info
+	for i := 2; i < pollIndex; i++ {
+		val := headers[i]
+
+		convertedVal := strings.ReplaceAll(val, "%", "_percent")
+		convertedVal = strings.ToLower(convertedVal)
+
+		pkgLabels := make(prometheus.Labels)
+
+		pkgLabels["type"] = convertedVal
+
+		metric := promauto.NewGauge(prometheus.GaugeOpts{
+			Name:        fmt.Sprintf("total_info"),
+			Help:        "Total value for something",
+			ConstLabels: pkgLabels,
+		})
+
+		m[fmt.Sprintf("total_%s", val)] = metric
+
+		listOfMetrics = append(listOfMetrics, metricMapping{
+			metric:     metric,
+			index:      val,
+			metricType: TurbostatTypes.Total,
+		})
+	}
+
+	// total_info
+	for i := coreTmpIndex; i < firstPkgState; i++ {
+		val := headers[i]
+
+		convertedVal := strings.ReplaceAll(val, "%", "_percent")
+		convertedVal = strings.ToLower(convertedVal)
+
+		pkgLabels := make(prometheus.Labels)
+
+		pkgLabels["type"] = convertedVal
+
+		metric := promauto.NewGauge(prometheus.GaugeOpts{
+			Name:        fmt.Sprintf("total_info"),
+			Help:        "Total value for something",
+			ConstLabels: pkgLabels,
+		})
+
+		m[fmt.Sprintf("total_%s", val)] = metric
+
+		listOfMetrics = append(listOfMetrics, metricMapping{
+			metric:     metric,
+			index:      val,
+			metricType: TurbostatTypes.Total,
+		})
+	}
+
+	// total_info
+	for i := lastPkgState + 1; i < headersLen; i++ {
+		val := headers[i]
+
+		convertedVal := strings.ReplaceAll(val, "%", "_percent")
+		convertedVal = strings.ToLower(convertedVal)
+
+		pkgLabels := make(prometheus.Labels)
+
+		pkgLabels["type"] = convertedVal
+
+		metric := promauto.NewGauge(prometheus.GaugeOpts{
+			Name:        fmt.Sprintf("total_info"),
+			Help:        "Total value for something",
+			ConstLabels: pkgLabels,
+		})
+
+		m[fmt.Sprintf("total_%s", val)] = metric
+
+		listOfMetrics = append(listOfMetrics, metricMapping{
+			metric:     metric,
+			index:      val,
+			metricType: TurbostatTypes.Total,
+		})
+	}
+
+	// total_core_states
+	for i := pollIndex; i < pollPIndex; i++ {
+		val := headers[i]
+
+		convertedVal := strings.ReplaceAll(val, "%", "_percent")
+		convertedVal = strings.ToLower(convertedVal)
+
+		pkgLabels := make(prometheus.Labels)
+
+		pkgLabels["type"] = convertedVal
+
+		metric := promauto.NewGauge(prometheus.GaugeOpts{
+			Name:        fmt.Sprintf("total_core_states"),
+			Help:        "Total value for something",
+			ConstLabels: pkgLabels,
+		})
+
+		m[fmt.Sprintf("total_%s", val)] = metric
+
+		listOfMetrics = append(listOfMetrics, metricMapping{
+			metric:     metric,
+			index:      val,
+			metricType: TurbostatTypes.Total,
+		})
+	}
+
+	// total_core_states_percent
+	for i := pollPIndex; i < firstCpuPercent; i++ {
+		val := headers[i]
+
+		convertedVal := strings.ReplaceAll(val, "%", "_percent")
+		convertedVal = strings.ToLower(convertedVal)
+
+		pkgLabels := make(prometheus.Labels)
+
+		pkgLabels["type"] = convertedVal
+
+		metric := promauto.NewGauge(prometheus.GaugeOpts{
+			Name:        fmt.Sprintf("total_core_states_percent"),
+			Help:        "Total value for something",
+			ConstLabels: pkgLabels,
+		})
+
+		m[fmt.Sprintf("total_%s", val)] = metric
+
+		listOfMetrics = append(listOfMetrics, metricMapping{
+			metric:     metric,
+			index:      val,
+			metricType: TurbostatTypes.Total,
+		})
+	}
+
+	// total_cpu_states_percent
+	for i := firstCpuPercent; i < coreTmpIndex; i++ {
+		val := headers[i]
+
+		convertedVal := strings.ReplaceAll(val, "%", "_percent")
+		convertedVal = strings.ToLower(convertedVal)
+
+		pkgLabels := make(prometheus.Labels)
+
+		pkgLabels["type"] = convertedVal
+
+		metric := promauto.NewGauge(prometheus.GaugeOpts{
+			Name:        fmt.Sprintf("total_cpu_states_percent"),
+			Help:        "Total value for something",
+			ConstLabels: pkgLabels,
+		})
+
+		m[fmt.Sprintf("total_%s", val)] = metric
+
+		listOfMetrics = append(listOfMetrics, metricMapping{
+			metric:     metric,
+			index:      val,
+			metricType: TurbostatTypes.Total,
+		})
+
+	}
+
+	// total_pkg_states_percent
+	for i := firstPkgState; i <= lastPkgState; i++ {
+		val := headers[i]
+
+		convertedVal := strings.ReplaceAll(val, "%", "_percent")
+		convertedVal = strings.ToLower(convertedVal)
+
+		pkgLabels := make(prometheus.Labels)
+
+		pkgLabels["type"] = convertedVal
+
+		metric := promauto.NewGauge(prometheus.GaugeOpts{
+			Name:        fmt.Sprintf("total_pkg_states_percent"),
+			Help:        "Total value for something",
+			ConstLabels: pkgLabels,
+		})
+
+		m[fmt.Sprintf("total_%s", val)] = metric
+
+		listOfMetrics = append(listOfMetrics, metricMapping{
+			metric:     metric,
+			index:      val,
+			metricType: TurbostatTypes.Total,
+		})
+	}
+
+	return listOfMetrics
+}
+
 func executeProgram(collectTimeSeconds int) bytes.Reader {
 	cmd := exec.Command("cat", "prox.csv")
 	time.Sleep(time.Duration(collectTimeSeconds) * time.Second)
@@ -466,11 +671,39 @@ func (collector *fooCollector) Collect(ch chan<- prometheus.Metric) {
 	// }
 }
 
+func Update() {
+	// TODO maybe run the execution in the background and just return the current values?
+	reader := executeProgram(1)
+	_, data := parseOutput(&reader)
+
+	for _, val := range listOfMetrics {
+
+		if tr, ok := val.metric.(prometheus.Gauge); ok {
+
+			switch metricType := val.metricType; metricType {
+			case TurbostatTypes.Total:
+				vate, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", data[0][val.index]), 2)
+				tr.Set(vate)
+				//tr.SetToCurrentTime()
+				log.Printf("Setting value for %s = %f", val.index, vate)
+			default:
+				log.Printf("Unsupported metric %s", metricType)
+			}
+		} else {
+			fmt.Println("s is not a string")
+		}
+
+	}
+}
+
 type helloWorldhandler struct{}
 
 func (h helloWorldhandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	Update()
 	promhttp.Handler().ServeHTTP(w, r)
 }
+
+var listOfMetrics []metricMapping = nil
 
 func main() {
 	fmt.Println("Prometheus turbostat exporter - created by BlackDark")
@@ -487,11 +720,12 @@ func main() {
 	// log.Println(string(buf[:n]))
 
 	// reader.Seek(0, 0)
-	foo := newFooCollector2(&reader)
+	// foo := newFooCollector2(&reader)
+	//prometheus.MustRegister(foo)
+
+	listOfMetrics = buildMetricList(&reader)
 
 	//foo := newFooCollector()
-
-	prometheus.MustRegister(foo)
 
 	http.Handle("/console/metrics", helloWorldhandler{})
 	//http.Handle("/console/metrics", promhttp.Handler())
