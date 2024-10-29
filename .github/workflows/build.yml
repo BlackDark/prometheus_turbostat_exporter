@@ -1,0 +1,32 @@
+name: Go
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux]
+        goarch: [amd64, arm64]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: go.sum
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Install dependencies
+        run: go get .
+      - name: Build
+        run: |
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o myapp-${{ matrix.goos }}-${{ matrix.goarch }}
+      - name: Archive binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: myapp-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: myapp-${{ matrix.goos }}-${{ matrix.goarch }}
