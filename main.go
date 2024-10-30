@@ -96,7 +96,7 @@ func buildMetricList(reader io.Reader) []metricMapping {
 
 	// cpu = one thread, core = physical core
 	for i := 2; i < headersLen; i++ {
-		if (i < pollIndex) || (i >= coreTmpIndex && i < firstPkgState) || (i >= lastPkgState && i < headersLen) {
+		if (i < pollIndex) || (i >= coreTmpIndex && i < firstPkgState) || (i > lastPkgState && i < headersLen) {
 			headerTotalIndices = append(headerTotalIndices, i)
 		}
 
@@ -115,6 +115,8 @@ func buildMetricList(reader io.Reader) []metricMapping {
 
 	log.Debugf("Extracted following header indices for states: Total %d, Core %d, CPU %d, Pkg %d", headerTotalIndices, headerCoreIndices, headerCpuIndices, headerPkgIndices)
 
+	registerer := promauto.With(prometheus.WrapRegistererWithPrefix("turbostat_", prometheus.DefaultRegisterer))
+
 	for _, i := range headerTotalIndices {
 		val := headers[i]
 
@@ -125,7 +127,7 @@ func buildMetricList(reader io.Reader) []metricMapping {
 
 		pkgLabels["type"] = convertedVal
 
-		metric := promauto.NewGauge(prometheus.GaugeOpts{
+		metric := registerer.NewGauge(prometheus.GaugeOpts{
 			Name:        fmt.Sprintf("total_info"),
 			Help:        "Total value for something",
 			ConstLabels: pkgLabels,
@@ -150,7 +152,7 @@ func buildMetricList(reader io.Reader) []metricMapping {
 
 		pkgLabels["type"] = convertedVal
 
-		metric := promauto.NewGauge(prometheus.GaugeOpts{
+		metric := registerer.NewGauge(prometheus.GaugeOpts{
 			Name:        fmt.Sprintf("total_core_states"),
 			Help:        "Total value for something",
 			ConstLabels: pkgLabels,
@@ -171,7 +173,7 @@ func buildMetricList(reader io.Reader) []metricMapping {
 			maps.Copy(coreLabels, pkgLabels)
 
 			listOfMetrics = append(listOfMetrics, metricMapping{
-				metric: promauto.NewGauge(prometheus.GaugeOpts{
+				metric: registerer.NewGauge(prometheus.GaugeOpts{
 					Name:        fmt.Sprintf("core_states"),
 					Help:        "Single value for something",
 					ConstLabels: coreLabels,
@@ -193,7 +195,7 @@ func buildMetricList(reader io.Reader) []metricMapping {
 
 		pkgLabels["type"] = convertedVal
 
-		metric := promauto.NewGauge(prometheus.GaugeOpts{
+		metric := registerer.NewGauge(prometheus.GaugeOpts{
 			Name:        fmt.Sprintf("total_cpu_states_percent"),
 			Help:        "Total value for something",
 			ConstLabels: pkgLabels,
@@ -214,7 +216,7 @@ func buildMetricList(reader io.Reader) []metricMapping {
 			maps.Copy(coreLabels, pkgLabels)
 
 			listOfMetrics = append(listOfMetrics, metricMapping{
-				metric: promauto.NewGauge(prometheus.GaugeOpts{
+				metric: registerer.NewGauge(prometheus.GaugeOpts{
 					Name:        fmt.Sprintf("cpu_state"),
 					Help:        "Single value for something",
 					ConstLabels: coreLabels,
@@ -236,7 +238,7 @@ func buildMetricList(reader io.Reader) []metricMapping {
 
 		pkgLabels["type"] = convertedVal
 
-		metric := promauto.NewGauge(prometheus.GaugeOpts{
+		metric := registerer.NewGauge(prometheus.GaugeOpts{
 			Name:        fmt.Sprintf("total_pkg_states_percent"),
 			Help:        "Total value for something",
 			ConstLabels: pkgLabels,
@@ -262,7 +264,7 @@ func executeProgram(collectTimeSeconds int) bytes.Reader {
 	} else {
 		cmd = exec.Command("turbostat", "--quiet", "sleep", strconv.Itoa(collectTimeSeconds))
 	}
-	log.Debugf("Executing command: %s", cmd.Args)
+	log.Tracef("Executing command: %s", cmd.Args)
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -273,11 +275,11 @@ func executeProgram(collectTimeSeconds int) bytes.Reader {
 		log.Fatalf("Failed to run turbostat: %v", err)
 	}
 
-	cmd.Wait()
+	//cmd.Wait()
 
 	lines := bytes.Split(out.Bytes(), []byte("\n"))
 
-	log.Debugf("Command output: %s", lines)
+	log.Tracef("Command output: %s", lines)
 
 	if len(lines) < 2 {
 		log.Println("No data to parse")
@@ -379,8 +381,10 @@ func (h helloWorldhandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 var listOfMetrics []metricMapping = nil
 var defaultSleepTimer int = 5
 var isCommandCat = false
+var isBackgroundMode = false
+var backgroundCollectSeconds = 30
 
-func main() {
+func parseConfiguration() {
 	godotenv.Load()
 
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_LOG_LEVEL"); ok {
@@ -392,8 +396,6 @@ func main() {
 		}
 	}
 
-	fmt.Println("Prometheus turbostat exporter - created by BlackDark")
-
 	// use the default if not set
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEFAULT_COLLECT_SECONDS"); ok {
 		if convertVal, err := strconv.Atoi(val); err == nil {
@@ -401,13 +403,37 @@ func main() {
 		}
 	}
 
+	log.Printf("Configured turbostat collecting time of %d seconds", defaultSleepTimer)
+
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEBUG_CAT_EXEC"); ok {
 		if val == "true" {
 			isCommandCat = true
+			log.Printf("Running in testing 'cat' mode. Will not execute turbostat.")
 		}
 	}
 
-	log.Printf("Configured turbostat collecting time of %d seconds", defaultSleepTimer)
+	if val, ok := os.LookupEnv("TURBOSTAT_COLLECT_IN_BACKGROUND"); ok {
+		if val == "true" {
+			isBackgroundMode = true
+		}
+	}
+
+	if val, ok := os.LookupEnv("TURBOSTAT_COLLECT_IN_BACKGROUND_INTERVAL"); ok {
+		if convertVal, err := strconv.Atoi(val); err == nil {
+			backgroundCollectSeconds = convertVal
+		}
+	}
+
+	if isBackgroundMode {
+		log.Printf("Running collector in background with interval %d.", backgroundCollectSeconds)
+	} else {
+		log.Printf("Running collector in active mode (on request will execute turbostat)")
+	}
+}
+
+func main() {
+	fmt.Println("Prometheus turbostat exporter - created by BlackDark")
+	parseConfiguration()
 
 	// TODO could be optimized
 	reader := executeProgram(1)
@@ -427,7 +453,7 @@ func main() {
 
 	//foo := newFooCollector()
 
-	http.Handle("/console/metrics", helloWorldhandler{})
+	http.Handle("/metrics", helloWorldhandler{})
 	//http.Handle("/console/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(":9101", nil))
 
