@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -437,11 +439,58 @@ func (h helloWorldhandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	promhttp.Handler().ServeHTTP(w, r)
 }
 
+func basicAuth(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Extract the username and password from the request
+		// Authorization header. If no Authentication header is present
+		// or the header value is invalid, then the 'ok' return value
+		// will be false.
+		username, password, ok := r.BasicAuth()
+		if ok {
+			// Calculate SHA-256 hashes for the provided and expected
+			// usernames and passwords.
+			usernameHash := sha256.Sum256([]byte(username))
+			passwordHash := sha256.Sum256([]byte(password))
+			expectedUsernameHash := sha256.Sum256([]byte(basicAuthUsername))
+			expectedPasswordHash := sha256.Sum256([]byte(basicAuthPassword))
+
+			// Use the subtle.ConstantTimeCompare() function to check if
+			// the provided username and password hashes equal the
+			// expected username and password hashes. ConstantTimeCompare
+			// will return 1 if the values are equal, or 0 otherwise.
+			// Importantly, we should to do the work to evaluate both the
+			// username and password before checking the return values to
+			// avoid leaking information.
+			usernameMatch := (subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1)
+			passwordMatch := (subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1)
+
+			// If the username and password are correct, then call
+			// the next handler in the chain. Make sure to return
+			// afterwards, so that none of the code below is run.
+			if usernameMatch && passwordMatch {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		// If the Authentication header is not present, is invalid, or the
+		// username or password is wrong, then set a WWW-Authenticate
+		// header to inform the client that we expect them to use basic
+		// authentication and send a 401 Unauthorized response.
+		w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	})
+}
+
 var listOfMetrics []metricMapping = nil
 var defaultSleepTimer = 5
 var isCommandCat = false
 var isBackgroundMode = false
 var backgroundCollectSeconds = 30
+var basicAuthUsername string
+var basicAuthPassword string
+var basicAuthEnabled = false
+var listenAddr = "0.0.0.0:9101"
 
 func parseConfiguration() {
 	godotenv.Load()
@@ -490,6 +539,37 @@ func parseConfiguration() {
 	} else {
 		log.Info().Msgf("Running collector in active mode (on request will execute turbostat)")
 	}
+
+	// use the default if not set
+	if val, ok := os.LookupEnv("TURBOSTAT_BASIC_AUTH_ENABLED"); ok {
+		if convertVal, err := strconv.ParseBool(val); err == nil {
+			if convertVal {
+				basicAuthEnabled = true
+			}
+		}
+	}
+
+	if basicAuthEnabled {
+		if val, ok := os.LookupEnv("TURBOSTAT_BASIC_AUTH_USERNAME"); ok {
+			basicAuthUsername = val
+		} else {
+			log.Fatal().Msg("BasicAuth enabled but could not read username.")
+			panic("Please correct your config.")
+		}
+
+		if val, ok := os.LookupEnv("TURBOSTAT_BASIC_AUTH_PASSWORD"); ok {
+			basicAuthPassword = val
+		} else {
+			log.Fatal().Msg("BasicAuth enabled but could not read password.")
+			panic("Please correct your config.")
+		}
+
+		log.Info().Msg("Enabled basic auth")
+	}
+
+	if val, ok := os.LookupEnv("TURBOSTAT_LISTEN_ADDR"); ok {
+		listenAddr = val
+	}
 }
 
 func main() {
@@ -525,7 +605,14 @@ func main() {
 		manualTick <- true
 	}
 
-	http.Handle("/metrics", helloWorldhandler{})
+	var metricsHandler http.HandlerFunc = helloWorldhandler{}.ServeHTTP
+
+	if basicAuthEnabled {
+		metricsHandler = basicAuth(metricsHandler)
+	}
+
+	http.Handle("/metrics", metricsHandler)
 	//http.Handle("/metrics", promhttp.Handler())
-	log.Fatal().Err(http.ListenAndServe(":9101", nil)).Msg("")
+	log.Info().Msgf("Starting server on %s", listenAddr)
+	log.Fatal().Err(http.ListenAndServe(listenAddr, nil)).Msg("")
 }
