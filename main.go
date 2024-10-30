@@ -21,7 +21,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
+
+	//log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type TurbostatType string
@@ -54,9 +56,9 @@ func buildMetricList(reader io.Reader) []metricMapping {
 	headersLen := len(headers)
 	dataLen := len(data)
 
-	log.Printf("Extracted %d headers which will be extracted\n", headersLen)
-	log.Printf("Following headers will be used: %s \n", headers)
-	log.Printf("Extracted %d data lines\n", dataLen)
+	logger.Infof("Extracted %d headers which will be extracted\n", headersLen)
+	logger.Infof("Following headers will be used: %s \n", headers)
+	logger.Infof("Extracted %d data lines\n", dataLen)
 
 	coreIndices := []int{}
 	cpuIndices := []int{}
@@ -74,7 +76,7 @@ func buildMetricList(reader io.Reader) []metricMapping {
 		coreIndices = append(coreIndices, v)
 	}
 
-	log.Printf("Total cores %d, Total cpus (threads) %d\n", len(coreIndices), len(cpuIndices))
+	logger.Infof("Total cores %d, Total cpus (threads) %d\n", len(coreIndices), len(cpuIndices))
 
 	pollIndex := slices.Index(headers, "POLL")
 	firstCpuPercent := slices.IndexFunc(headers, func(n string) bool {
@@ -111,7 +113,7 @@ func buildMetricList(reader io.Reader) []metricMapping {
 		}
 	}
 
-	log.Debugf("Extracted following header indices for states: Total %d, Core %d, CPU %d, Pkg %d", headerTotalIndices, headerCoreIndices, headerCpuIndices, headerPkgIndices)
+	logger.Debugf("Extracted following header indices for states: Total %d, Core %d, CPU %d, Pkg %d", headerTotalIndices, headerCoreIndices, headerCpuIndices, headerPkgIndices)
 
 	registerer := promauto.With(prometheus.WrapRegistererWithPrefix("turbostat_", prometheus.DefaultRegisterer))
 
@@ -324,7 +326,7 @@ func executeProgram(collectTimeSeconds int) bytes.Reader {
 	} else {
 		cmd = exec.Command("turbostat", "--quiet", "sleep", strconv.Itoa(collectTimeSeconds))
 	}
-	log.Tracef("Executing command: %s", cmd.Args)
+	logger.Debugf("Executing command: %s", cmd.Args)
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -332,17 +334,17 @@ func executeProgram(collectTimeSeconds int) bytes.Reader {
 
 	err := cmd.Run()
 	if err != nil {
-		log.Fatalf("Failed to run turbostat: %v", err)
+		logger.Fatalf("Failed to run turbostat: %v", err)
 	}
 
 	//cmd.Wait()
 
 	lines := bytes.Split(out.Bytes(), []byte("\n"))
 
-	log.Tracef("Command output: %s", lines)
+	logger.Debugf("Command output: %s", lines)
 
 	if len(lines) < 2 {
-		log.Println("No data to parse")
+		logger.Infoln("No data to parse")
 	}
 
 	if !strings.HasPrefix(string(lines[0]), "Core") {
@@ -362,7 +364,7 @@ func parseOutput(input io.Reader) ([]string, []map[string]interface{}) {
 	// Core	CPU	Avg_MHz	Busy%	Bzy_MHz	TSC_MHz	IPC	IRQ	SMI	POLL (c states) POLL% (c% states) CPU%c1 CPU%c6 CPU%c7 CoreTmp CoreThr
 	headers, err := csvReader.Read()
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	var data []map[string]interface{}
@@ -415,7 +417,7 @@ func Update() {
 				vate, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", data[val.coreIndex][val.index]), 2)
 				tr.Set(vate)
 			default:
-				log.Printf("Unsupported metric %s", metricType)
+				logger.Infof("Unsupported metric %s", metricType)
 			}
 		} else {
 			fmt.Println("gauge parsing failed")
@@ -438,18 +440,23 @@ var defaultSleepTimer = 5
 var isCommandCat = false
 var isBackgroundMode = false
 var backgroundCollectSeconds = 30
+var logger *zap.SugaredLogger
 
 func parseConfiguration() {
 	godotenv.Load()
 
+	newConf := zap.NewProductionConfig()
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_LOG_LEVEL"); ok {
-		switch val {
-		case "debug":
-			log.SetLevel(log.DebugLevel)
-		default:
-			log.SetLevel(log.InfoLevel)
+		level, err := zap.ParseAtomicLevel(val)
+		if err != nil {
+			fmt.Printf("Invalid log level provided %s. Setting default to INFO", val)
+		} else {
+			newConf.Level = level
 		}
 	}
+	zapLogger, _ := newConf.Build()
+	defer zapLogger.Sync() // flushes buffer, if any
+	logger = zapLogger.Sugar()
 
 	// use the default if not set
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEFAULT_COLLECT_SECONDS"); ok {
@@ -458,12 +465,12 @@ func parseConfiguration() {
 		}
 	}
 
-	log.Printf("Configured turbostat collecting time of %d seconds", defaultSleepTimer)
+	logger.Infof("Configured turbostat collecting time of %d seconds", defaultSleepTimer)
 
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEBUG_CAT_EXEC"); ok {
 		if val == "true" {
 			isCommandCat = true
-			log.Printf("Running in testing 'cat' mode. Will not execute turbostat.")
+			logger.Infof("Running in testing 'cat' mode. Will not execute turbostat.")
 		}
 	}
 
@@ -480,9 +487,9 @@ func parseConfiguration() {
 	}
 
 	if isBackgroundMode {
-		log.Printf("Running collector in background with interval %d.", backgroundCollectSeconds)
+		logger.Infof("Running collector in background with interval %d.", backgroundCollectSeconds)
 	} else {
-		log.Printf("Running collector in active mode (on request will execute turbostat)")
+		logger.Infof("Running collector in active mode (on request will execute turbostat)")
 	}
 }
 
@@ -495,7 +502,7 @@ func main() {
 	listOfMetrics = buildMetricList(&reader)
 
 	if isBackgroundMode {
-		log.Debugf("Starting ticker")
+		logger.Debugf("Starting ticker")
 		ticker := time.NewTicker(time.Duration(backgroundCollectSeconds) * time.Second)
 		quit := make(chan struct{})
 		manualTick := make(chan bool)
@@ -504,13 +511,13 @@ func main() {
 			for {
 				select {
 				case <-ticker.C:
-					log.Debugf("Ticker update")
+					logger.Debugf("Ticker update")
 					Update()
 				case <-manualTick:
-					log.Debugf("Manual tick update")
+					logger.Debugf("Manual tick update")
 					Update()
 				case <-quit:
-					log.Debugf("Stop background updater")
+					logger.Debugf("Stop background updater")
 					ticker.Stop()
 					return
 				}
@@ -521,5 +528,5 @@ func main() {
 
 	http.Handle("/metrics", helloWorldhandler{})
 	//http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(":9101", nil))
+	logger.Fatal(http.ListenAndServe(":9101", nil))
 }
