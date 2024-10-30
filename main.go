@@ -14,10 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"bufio"
-
-	"github.com/gocarina/gocsv"
-
 	"net/http"
 
 	"github.com/joho/godotenv"
@@ -412,23 +408,17 @@ func Update() {
 			case TurbostatTypes.Total:
 				vate, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", data[0][val.index]), 2)
 				tr.Set(vate)
-				//tr.SetToCurrentTime()
-				// log.Printf("Setting value for %s = %f", val.index, vate)
 			case TurbostatTypes.Core:
 				vate, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", data[val.coreIndex][val.index]), 2)
 				tr.Set(vate)
-				//tr.SetToCurrentTime()
-				// log.Printf("Setting value for %s = %f", val.index, vate)
 			case TurbostatTypes.Cpu:
 				vate, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", data[val.coreIndex][val.index]), 2)
 				tr.Set(vate)
-				//tr.SetToCurrentTime()
-				// log.Printf("Setting value for %s = %f", val.index, vate)
 			default:
 				log.Printf("Unsupported metric %s", metricType)
 			}
 		} else {
-			fmt.Println("s is not a string")
+			fmt.Println("gauge parsing failed")
 		}
 
 	}
@@ -500,19 +490,7 @@ func main() {
 	fmt.Println("Prometheus turbostat exporter - created by BlackDark")
 	parseConfiguration()
 
-	// TODO could be optimized
-	reader := executeProgram(1)
-
-	// buf := make([]byte, 4)
-	// n, err := reader.Read(buf)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// log.Println(string(buf[:n]))
-
-	// reader.Seek(0, 0)
-	// foo := newFooCollector2(&reader)
-	//prometheus.MustRegister(foo)
+	reader := executeProgram(0)
 
 	listOfMetrics = buildMetricList(&reader)
 
@@ -541,123 +519,7 @@ func main() {
 		manualTick <- true
 	}
 
-	//foo := newFooCollector()
-
 	http.Handle("/metrics", helloWorldhandler{})
-	//http.Handle("/console/metrics", promhttp.Handler())
+	//http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(":9101", nil))
-
-}
-
-func exec3() {
-
-	header, data := test3()
-	fmt.Printf("%v\n", header)
-	fmt.Printf("%s\n", header[0])
-
-	for i, j := range data {
-		fmt.Println(i, j)
-
-		fmt.Printf("DIGGA_%f{label=pkg}\n", j["PkgWatt"])
-	}
-}
-
-func test1() {
-	clientsFile, err := os.OpenFile("test.csv", os.O_RDWR|os.O_CREATE, os.ModePerm)
-	if err != nil {
-		panic(err)
-	}
-	defer clientsFile.Close()
-
-	// Set up the CSV reader with tab as the delimiter
-	gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
-		r := csv.NewReader(in)
-		r.Comma = '\t'
-		return r
-	})
-
-	// Use gocsv to read the rest of the file into maps
-	maps, err := gocsv.CSVToMaps(clientsFile)
-	if err != nil {
-		panic(err)
-	}
-
-	for _, client := range maps {
-		fmt.Println("Hello", client)
-	}
-}
-
-func test2() []string {
-	in, err := os.Open("test.csv")
-	if err != nil {
-		log.Fatalf("%s", err)
-	}
-	defer in.Close()
-
-	// Set up the CSV reader with tab as the delimiter
-	gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
-		r := csv.NewReader(in)
-		r.Comma = '\t'
-		return r
-	})
-
-	m, err := gocsv.CSVToMaps(bufio.NewReader(in))
-	if err != nil {
-		log.Fatalf("%s", err)
-	}
-
-	header := []string{}
-	for k := range m[0] {
-		header = append(header, k)
-	}
-
-	return header
-}
-
-func test3() ([]string, []map[string]interface{}) {
-	in, err := os.Open("prox.csv")
-	if err != nil {
-		log.Fatalf("%s", err)
-	}
-	defer in.Close()
-
-	csvReader := csv.NewReader(in)
-	csvReader.FieldsPerRecord = -1
-	csvReader.Comma = '\t'
-
-	// Core	CPU	Avg_MHz	Busy%	Bzy_MHz	TSC_MHz	IPC	IRQ	SMI	POLL (c states) POLL% (c% states) CPU%c1 CPU%c6 CPU%c7 CoreTmp CoreThr
-	headers, err := csvReader.Read()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var data []map[string]interface{}
-
-	for {
-		row, err := csvReader.Read()
-		if err != nil {
-			break
-		}
-
-		m := make(map[string]interface{})
-		for i, val := range row {
-			f, err := strconv.ParseFloat(val, 64)
-			if err == nil {
-				m[headers[i]] = f
-				continue
-			}
-
-			b, err := strconv.ParseBool(val)
-			if err == nil {
-				m[headers[i]] = b
-				continue
-			}
-
-			m[headers[i]] = val
-		}
-
-		data = append(data, m)
-	}
-
-	return headers, data
 }
