@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"os"
 	"os/exec"
 	"slices"
@@ -119,16 +120,21 @@ func buildMetricList(reader io.Reader) []metricMapping {
 
 	for _, i := range headerTotalIndices {
 		val := headers[i]
-
-		convertedVal := strings.ReplaceAll(val, "%", "_percent")
-		convertedVal = strings.ToLower(convertedVal)
-
 		pkgLabels := make(prometheus.Labels)
+		var metricName = "total"
+
+		convertedVal := strings.ToLower(val)
+		isPercentage := strings.Index(convertedVal, "%")
+
+		if isPercentage > -1 {
+			convertedVal = strings.ReplaceAll(convertedVal, "%", "")
+			metricName += "_percent"
+		}
 
 		pkgLabels["type"] = convertedVal
 
 		metric := registerer.NewGauge(prometheus.GaugeOpts{
-			Name:        fmt.Sprintf("total_info"),
+			Name:        metricName,
 			Help:        "Total value for something",
 			ConstLabels: pkgLabels,
 		})
@@ -145,15 +151,30 @@ func buildMetricList(reader io.Reader) []metricMapping {
 	for _, i := range headerCoreIndices {
 		val := headers[i]
 
-		convertedVal := strings.ReplaceAll(val, "%", "_percent")
-		convertedVal = strings.ToLower(convertedVal)
-
 		pkgLabels := make(prometheus.Labels)
+		var metricName = "core_states"
 
-		pkgLabels["type"] = convertedVal
+		convertedVal := strings.ToLower(val)
+		isPercentage := strings.Index(convertedVal, "%")
+
+		var labelTypeValue string = convertedVal
+
+		if isPercentage > -1 {
+			splitted := strings.Split(convertedVal, "%")
+
+			if splitted[1] != "" {
+				labelTypeValue = splitted[1]
+			} else {
+				labelTypeValue = splitted[0]
+			}
+
+			metricName += "_percent"
+		}
+
+		pkgLabels["type"] = labelTypeValue
 
 		metric := registerer.NewGauge(prometheus.GaugeOpts{
-			Name:        fmt.Sprintf("total_core_states"),
+			Name:        fmt.Sprintf("total_%s", metricName),
 			Help:        "Total value for something",
 			ConstLabels: pkgLabels,
 		})
@@ -168,13 +189,13 @@ func buildMetricList(reader io.Reader) []metricMapping {
 
 		for _, coreV := range coreIndices {
 			coreLabels := map[string]string{
-				"num_core": strconv.Itoa(int(data[coreV]["CPU"].(float64))),
+				"num_core": prependStringWithZeros(strconv.Itoa(int(data[coreV]["CPU"].(float64))), len(coreIndices)),
 			}
 			maps.Copy(coreLabels, pkgLabels)
 
 			listOfMetrics = append(listOfMetrics, metricMapping{
 				metric: registerer.NewGauge(prometheus.GaugeOpts{
-					Name:        fmt.Sprintf("core_states"),
+					Name:        metricName,
 					Help:        "Single value for something",
 					ConstLabels: coreLabels,
 				}),
@@ -188,15 +209,30 @@ func buildMetricList(reader io.Reader) []metricMapping {
 	for _, i := range headerCpuIndices {
 		val := headers[i]
 
-		convertedVal := strings.ReplaceAll(val, "%", "_percent")
-		convertedVal = strings.ToLower(convertedVal)
-
 		pkgLabels := make(prometheus.Labels)
+		var metricName = "cpu_states"
 
-		pkgLabels["type"] = convertedVal
+		convertedVal := strings.ToLower(val)
+		isPercentage := strings.Index(convertedVal, "%")
+
+		var labelTypeValue string = convertedVal
+
+		if isPercentage > -1 {
+			splitted := strings.Split(convertedVal, "%")
+
+			if splitted[1] != "" {
+				labelTypeValue = splitted[1]
+			} else {
+				labelTypeValue = splitted[0]
+			}
+
+			metricName += "_percent"
+		}
+
+		pkgLabels["type"] = labelTypeValue
 
 		metric := registerer.NewGauge(prometheus.GaugeOpts{
-			Name:        fmt.Sprintf("total_cpu_states_percent"),
+			Name:        fmt.Sprintf("total_%s", metricName),
 			Help:        "Total value for something",
 			ConstLabels: pkgLabels,
 		})
@@ -211,13 +247,13 @@ func buildMetricList(reader io.Reader) []metricMapping {
 
 		for _, cpuV := range cpuIndices {
 			coreLabels := map[string]string{
-				"num_cpu": strconv.Itoa(int(data[cpuV]["CPU"].(float64))),
+				"num_cpu": prependStringWithZeros(strconv.Itoa(int(data[cpuV]["CPU"].(float64))), len(cpuIndices)),
 			}
 			maps.Copy(coreLabels, pkgLabels)
 
 			listOfMetrics = append(listOfMetrics, metricMapping{
 				metric: registerer.NewGauge(prometheus.GaugeOpts{
-					Name:        fmt.Sprintf("cpu_state"),
+					Name:        metricName,
 					Help:        "Single value for something",
 					ConstLabels: coreLabels,
 				}),
@@ -231,15 +267,30 @@ func buildMetricList(reader io.Reader) []metricMapping {
 	for _, i := range headerPkgIndices {
 		val := headers[i]
 
-		convertedVal := strings.ReplaceAll(val, "%", "_percent")
-		convertedVal = strings.ToLower(convertedVal)
-
 		pkgLabels := make(prometheus.Labels)
+		var metricName = "pkg_states"
 
-		pkgLabels["type"] = convertedVal
+		convertedVal := strings.ToLower(val)
+		isPercentage := strings.Index(convertedVal, "%")
+
+		var labelTypeValue string = convertedVal
+
+		if isPercentage > -1 {
+			splitted := strings.Split(convertedVal, "%")
+
+			if splitted[1] != "" {
+				labelTypeValue = splitted[1]
+			} else {
+				labelTypeValue = splitted[0]
+			}
+
+			metricName += "_percent"
+		}
+
+		pkgLabels["type"] = labelTypeValue
 
 		metric := registerer.NewGauge(prometheus.GaugeOpts{
-			Name:        fmt.Sprintf("total_pkg_states_percent"),
+			Name:        fmt.Sprintf("total_%s", metricName),
 			Help:        "Total value for something",
 			ConstLabels: pkgLabels,
 		})
@@ -256,11 +307,23 @@ func buildMetricList(reader io.Reader) []metricMapping {
 	return listOfMetrics
 }
 
+func prependStringWithZeros(input string, length int) string {
+	var newString string = ""
+
+	requiredLength := int(math.Log10(float64(length))) + 1
+
+	for i := 0; i < (requiredLength - len(input)); i++ {
+		newString += "0"
+	}
+
+	return newString + input
+}
+
 func executeProgram(collectTimeSeconds int) bytes.Reader {
 	var cmd *exec.Cmd
 
 	if isCommandCat {
-		cmd = exec.Command("cat", "prox.csv")
+		cmd = exec.Command("cat", "sample2.csv")
 	} else {
 		cmd = exec.Command("turbostat", "--quiet", "sleep", strconv.Itoa(collectTimeSeconds))
 	}
