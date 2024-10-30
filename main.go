@@ -5,18 +5,18 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"io"
 	"maps"
 	"math"
+	"net/http"
 	"os"
 	"os/exec"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
-
-	"net/http"
 
 	"github.com/joho/godotenv"
 
@@ -481,6 +481,7 @@ func basicAuth(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+var Version = "development"
 var listOfMetrics []metricMapping = nil
 var defaultSleepTimer = 5
 var isCommandCat = false
@@ -572,8 +573,20 @@ func parseConfiguration() {
 }
 
 func main() {
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	flagVersion := flag.Bool("version", false, "prints the version")
 
+	flag.Parse()
+
+	if *flagVersion {
+		fmt.Println(Version)
+		os.Exit(0)
+	}
+
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	startServer()
+}
+
+func startServer() {
 	fmt.Println("Prometheus turbostat exporter - created by BlackDark (https://github.com/BlackDark/prometheus_turbotstat_exporter)")
 	parseConfiguration()
 
