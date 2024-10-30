@@ -23,7 +23,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	//log "github.com/sirupsen/logrus"
-	"go.uber.org/zap"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type TurbostatType string
@@ -56,9 +58,9 @@ func buildMetricList(reader io.Reader) []metricMapping {
 	headersLen := len(headers)
 	dataLen := len(data)
 
-	logger.Infof("Extracted %d headers which will be extracted\n", headersLen)
-	logger.Infof("Following headers will be used: %s \n", headers)
-	logger.Infof("Extracted %d data lines\n", dataLen)
+	log.Info().Msgf("Extracted %d headers which will be extracted", headersLen)
+	log.Info().Msgf("Following headers will be used: %s", headers)
+	log.Info().Msgf("Extracted %d data lines", dataLen)
 
 	coreIndices := []int{}
 	cpuIndices := []int{}
@@ -76,7 +78,7 @@ func buildMetricList(reader io.Reader) []metricMapping {
 		coreIndices = append(coreIndices, v)
 	}
 
-	logger.Infof("Total cores %d, Total cpus (threads) %d\n", len(coreIndices), len(cpuIndices))
+	log.Info().Msgf("Total cores %d, Total cpus (threads) %d", len(coreIndices), len(cpuIndices))
 
 	pollIndex := slices.Index(headers, "POLL")
 	firstCpuPercent := slices.IndexFunc(headers, func(n string) bool {
@@ -113,7 +115,7 @@ func buildMetricList(reader io.Reader) []metricMapping {
 		}
 	}
 
-	logger.Debugf("Extracted following header indices for states: Total %d, Core %d, CPU %d, Pkg %d", headerTotalIndices, headerCoreIndices, headerCpuIndices, headerPkgIndices)
+	log.Debug().Msgf("Extracted following header indices for states: Total %d, Core %d, CPU %d, Pkg %d", headerTotalIndices, headerCoreIndices, headerCpuIndices, headerPkgIndices)
 
 	registerer := promauto.With(prometheus.WrapRegistererWithPrefix("turbostat_", prometheus.DefaultRegisterer))
 
@@ -326,7 +328,7 @@ func executeProgram(collectTimeSeconds int) bytes.Reader {
 	} else {
 		cmd = exec.Command("turbostat", "--quiet", "sleep", strconv.Itoa(collectTimeSeconds))
 	}
-	logger.Debugf("Executing command: %s", cmd.Args)
+	log.Trace().Msgf("Executing command: %s", cmd.Args)
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -334,17 +336,17 @@ func executeProgram(collectTimeSeconds int) bytes.Reader {
 
 	err := cmd.Run()
 	if err != nil {
-		logger.Fatalf("Failed to run turbostat: %v", err)
+		log.Fatal().Msgf("Failed to run turbostat: %v", err)
 	}
 
 	//cmd.Wait()
 
 	lines := bytes.Split(out.Bytes(), []byte("\n"))
 
-	logger.Debugf("Command output: %s", lines)
+	log.Trace().Msgf("Command output: %s", lines)
 
 	if len(lines) < 2 {
-		logger.Infoln("No data to parse")
+		log.Info().Msg("No data to parse")
 	}
 
 	if !strings.HasPrefix(string(lines[0]), "Core") {
@@ -364,7 +366,7 @@ func parseOutput(input io.Reader) ([]string, []map[string]interface{}) {
 	// Core	CPU	Avg_MHz	Busy%	Bzy_MHz	TSC_MHz	IPC	IRQ	SMI	POLL (c states) POLL% (c% states) CPU%c1 CPU%c6 CPU%c7 CoreTmp CoreThr
 	headers, err := csvReader.Read()
 	if err != nil {
-		logger.Fatal(err)
+		log.Fatal().Err(err).Msg("")
 	}
 
 	var data []map[string]interface{}
@@ -417,7 +419,7 @@ func Update() {
 				vate, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", data[val.coreIndex][val.index]), 2)
 				tr.Set(vate)
 			default:
-				logger.Infof("Unsupported metric %s", metricType)
+				log.Info().Msgf("Unsupported metric %s", metricType)
 			}
 		} else {
 			fmt.Println("gauge parsing failed")
@@ -440,23 +442,20 @@ var defaultSleepTimer = 5
 var isCommandCat = false
 var isBackgroundMode = false
 var backgroundCollectSeconds = 30
-var logger *zap.SugaredLogger
 
 func parseConfiguration() {
 	godotenv.Load()
 
-	newConf := zap.NewProductionConfig()
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_LOG_LEVEL"); ok {
-		level, err := zap.ParseAtomicLevel(val)
+		level, err := zerolog.ParseLevel(val)
 		if err != nil {
 			fmt.Printf("Invalid log level provided %s. Setting default to INFO", val)
 		} else {
-			newConf.Level = level
+			zerolog.SetGlobalLevel(level)
 		}
 	}
-	zapLogger, _ := newConf.Build()
-	defer zapLogger.Sync() // flushes buffer, if any
-	logger = zapLogger.Sugar()
+
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	// use the default if not set
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEFAULT_COLLECT_SECONDS"); ok {
@@ -465,12 +464,12 @@ func parseConfiguration() {
 		}
 	}
 
-	logger.Infof("Configured turbostat collecting time of %d seconds", defaultSleepTimer)
+	log.Info().Msgf("Configured turbostat collecting time of %d seconds", defaultSleepTimer)
 
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEBUG_CAT_EXEC"); ok {
 		if val == "true" {
 			isCommandCat = true
-			logger.Infof("Running in testing 'cat' mode. Will not execute turbostat.")
+			log.Info().Msgf("Running in testing 'cat' mode. Will not execute turbostat.")
 		}
 	}
 
@@ -487,9 +486,9 @@ func parseConfiguration() {
 	}
 
 	if isBackgroundMode {
-		logger.Infof("Running collector in background with interval %d.", backgroundCollectSeconds)
+		log.Info().Msgf("Running collector in background with interval %d.", backgroundCollectSeconds)
 	} else {
-		logger.Infof("Running collector in active mode (on request will execute turbostat)")
+		log.Info().Msgf("Running collector in active mode (on request will execute turbostat)")
 	}
 }
 
@@ -502,7 +501,7 @@ func main() {
 	listOfMetrics = buildMetricList(&reader)
 
 	if isBackgroundMode {
-		logger.Debugf("Starting ticker")
+		log.Debug().Msgf("Starting ticker")
 		ticker := time.NewTicker(time.Duration(backgroundCollectSeconds) * time.Second)
 		quit := make(chan struct{})
 		manualTick := make(chan bool)
@@ -511,13 +510,13 @@ func main() {
 			for {
 				select {
 				case <-ticker.C:
-					logger.Debugf("Ticker update")
+					log.Debug().Msgf("Ticker update")
 					Update()
 				case <-manualTick:
-					logger.Debugf("Manual tick update")
+					log.Debug().Msgf("Manual tick update")
 					Update()
 				case <-quit:
-					logger.Debugf("Stop background updater")
+					log.Debug().Msgf("Stop background updater")
 					ticker.Stop()
 					return
 				}
@@ -528,5 +527,5 @@ func main() {
 
 	http.Handle("/metrics", helloWorldhandler{})
 	//http.Handle("/metrics", promhttp.Handler())
-	logger.Fatal(http.ListenAndServe(":9101", nil))
+	log.Fatal().Err(http.ListenAndServe(":9101", nil)).Msg("")
 }
