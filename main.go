@@ -60,9 +60,8 @@ func buildMetricList(reader io.Reader) []metricMapping {
 	headersLen := len(headers)
 	dataLen := len(data)
 
-	log.Info().Msgf("Extracted %d headers which will be extracted", headersLen)
-	log.Info().Msgf("Following headers will be used: %s", headers)
-	log.Info().Msgf("Extracted %d data lines", dataLen)
+	log.Info().Msgf("Found %d headers, %d data lines", headersLen, dataLen)
+	log.Debug().Msgf("Headers: %s", headers)
 
 	coreIndices := []int{}
 	cpuIndices := []int{}
@@ -575,7 +574,7 @@ func parseConfiguration() {
 func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
-	fmt.Println("Prometheus turbostat exporter - created by BlackDark")
+	fmt.Println("Prometheus turbostat exporter - created by BlackDark (https://github.com/BlackDark/prometheus_turbotstat_exporter)")
 	parseConfiguration()
 
 	reader := executeProgram(0)
