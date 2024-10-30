@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  tub:
+    image: test:test
+    privileged: true
+    environment: []
+    volumes:
+      - /dev:/dev
