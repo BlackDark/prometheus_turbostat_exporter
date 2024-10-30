@@ -573,6 +573,8 @@ func parseConfiguration() {
 }
 
 func main() {
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
 	fmt.Println("Prometheus turbostat exporter - created by BlackDark")
 	parseConfiguration()
 
