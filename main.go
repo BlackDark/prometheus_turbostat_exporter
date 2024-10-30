@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"bufio"
 
@@ -400,7 +401,6 @@ func parseOutput(input io.Reader) ([]string, []map[string]interface{}) {
 }
 
 func Update() {
-	// TODO maybe run the execution in the background and just return the current values?
 	reader := executeProgram(defaultSleepTimer)
 	_, data := parseOutput(&reader)
 
@@ -437,12 +437,14 @@ func Update() {
 type helloWorldhandler struct{}
 
 func (h helloWorldhandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	Update()
+	if !isBackgroundMode {
+		Update()
+	}
 	promhttp.Handler().ServeHTTP(w, r)
 }
 
 var listOfMetrics []metricMapping = nil
-var defaultSleepTimer int = 5
+var defaultSleepTimer = 5
 var isCommandCat = false
 var isBackgroundMode = false
 var backgroundCollectSeconds = 30
@@ -514,6 +516,31 @@ func main() {
 
 	listOfMetrics = buildMetricList(&reader)
 
+	if isBackgroundMode {
+		log.Debugf("Starting ticker")
+		ticker := time.NewTicker(time.Duration(backgroundCollectSeconds) * time.Second)
+		quit := make(chan struct{})
+		manualTick := make(chan bool)
+
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					log.Debugf("Ticker update")
+					Update()
+				case <-manualTick:
+					log.Debugf("Manual tick update")
+					Update()
+				case <-quit:
+					log.Debugf("Stop background updater")
+					ticker.Stop()
+					return
+				}
+			}
+		}()
+		manualTick <- true
+	}
+
 	//foo := newFooCollector()
 
 	http.Handle("/metrics", helloWorldhandler{})
@@ -552,10 +579,6 @@ func test1() {
 	// Use gocsv to read the rest of the file into maps
 	maps, err := gocsv.CSVToMaps(clientsFile)
 	if err != nil {
-		panic(err)
-	}
-
-	if err != nil { // Load clients from file
 		panic(err)
 	}
 
