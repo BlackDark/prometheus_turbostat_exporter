@@ -2,6 +2,7 @@
 
 FROM golang:1.23 AS BUILD
 WORKDIR /app
+ARG BUILD_VERSION=dev
 
 # Download Go modules
 COPY go.mod go.sum ./
@@ -12,9 +13,9 @@ RUN go mod download
 COPY *.go ./
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -o /turbostat-exporter
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'main.Version=${BUILD_VERSION}'" -o /turbostat-exporter
 
-FROM debian:12.7-slim
+FROM debian:sid-slim
 
 RUN <<EOF
     apt update
@@ -23,3 +24,4 @@ RUN <<EOF
 EOF
 
 COPY --from=BUILD /turbostat-exporter /usr/bin/turbostat-exporter
+
