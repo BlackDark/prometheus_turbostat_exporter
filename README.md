@@ -14,6 +14,11 @@ It collects CPU and core statistics using the `turbostat` tool and exposes them 
 
 You can download the binaries for available platforms in the [Releases](https://github.com/BlackDark/prometheus_turbotstat_exporter/releases).
 
+- Run with `turbostat-exporter`. Default listener on `0.0.0.0:9101` (also displayed as logs),
+- or run with docker (but must be run as priviliged to have all information available):
+  `docker run -p 9101:9101 --privileged ghcr.io/blackdark/prometheus_turbotstat_exporter:main`
+
+
 ## Example scrape output
 
 Part of the output from the scrape:

@@ -25,3 +25,4 @@ EOF
 
 COPY --from=BUILD /turbostat-exporter /usr/bin/turbostat-exporter
 
+CMD [ "/usr/bin/turbostat-exporter" ]
