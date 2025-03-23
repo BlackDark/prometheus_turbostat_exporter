@@ -587,7 +587,7 @@ func main() {
 }
 
 func startServer() {
-	fmt.Println("Prometheus turbostat exporter - created by BlackDark (https://github.com/BlackDark/prometheus_turbotstat_exporter)")
+	fmt.Println("Prometheus turbostat exporter - created by BlackDark (https://github.com/BlackDark/prometheus_turbostat_exporter)")
 	parseConfiguration()
 
 	reader := executeProgram(0)
