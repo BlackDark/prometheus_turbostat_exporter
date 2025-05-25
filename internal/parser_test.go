@@ -118,3 +118,24 @@ func TestParseRows_SingleRow(t *testing.T) {
 		t.Errorf("expected 1 cpu row, got %d", len(categorized["cpu"]))
 	}
 }
+
+func TestParseOutput_RealWithSeconds(t *testing.T) {
+	headers, rows, err := ParseTurbostatOutput(`0.007923 sec
+Core CPU Test
+-	-	1
+0	0	1
+`)
+
+	if err != nil {
+		t.Errorf("expected parsing turbostat output to succeed, got error: %v", err)
+	}
+
+	if len(headers) == 0 || len(rows) == 0 {
+		t.Errorf("expected non-empty headers and rows, got %d headers and %d rows", len(headers), len(rows))
+		return
+	}
+
+	if len(headers) != 3 {
+		t.Errorf("expected 3 headers, got %d", len(headers))
+	}
+}

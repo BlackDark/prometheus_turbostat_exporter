@@ -293,6 +293,12 @@ func ParseTurbostatOutput(raw string) ([]string, [][]string, error) {
 		if len(fields) == 0 {
 			continue
 		}
+
+		if fields[len(fields)-1] == "sec" {
+			// skip line contains execution time
+			continue
+		}
+
 		// If headers not set, use this line as headers
 		if len(headers) == 0 {
 			headers = fields
