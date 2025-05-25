@@ -10,6 +10,7 @@ type TurbostatRow struct {
 	Other             map[string]float64
 	OtherPercent      map[string]float64
 	PkgStatesPercent  map[string]float64
+	Category          string // "total", "package", "core", "cpu"
 }
 
 func NewTurbostatRow() *TurbostatRow {

@@ -4,15 +4,12 @@ import (
 	"blackdark/turbostat-exporter/internal"
 	"bytes"
 	"context"
-	"encoding/csv"
 	"flag"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -41,6 +38,7 @@ func main() {
 		os.Exit(0)
 	}
 
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	parser := internal.NewTurbostatParser()
@@ -55,28 +53,36 @@ func createUpdateFunc(parser *internal.TurbostatParser, exporter *internal.Turbo
 	return func(collectionTimeSecnds time.Duration) {
 		content, err := executeProgram(0)
 		if err != nil {
-			log.Error().Msgf("Failed to run turbostat: %v", err)
-			os.Exit(1)
+			log.Fatal().Err(err).Msg("Failed to run turbostat")
 		}
 
-		headers, rows, err := parseTurbostatOutput(content)
+		headers, rows, err := internal.ParseTurbostatOutput(content)
 		if err != nil {
-			log.Error().Msgf("Failed to parse turbostat output: %v", err)
-			os.Exit(1)
+			log.Fatal().Err(err).Msg("Failed to parse turbostat output")
 		}
 
-		log.Info().Msgf("Found %d headers, %d data lines", len(headers), len(rows))
+		log.Debug().Msgf("Found %d headers, %d data lines", len(headers), len(rows))
 		log.Debug().Msgf("Headers: %s", headers)
 
-		parser.SetupColumnParsers(headers)
+		parsedRows := parser.ParseRowsSimple(headers, rows)
 
-		parsedRows, err := parser.ParseRows(rows)
-		if err != nil {
-			log.Error().Msgf("Failed to parse turbostat data: %v", err)
-			os.Exit(1)
+		extractedCategories := "Categories found - "
+		// Debug: print how many rows are in each category
+		for _, cat := range []string{"package", "core", "cpu", "total"} {
+			catRows := parsedRows[cat]
+			extractedCategories += fmt.Sprintf("%s: %d, ", cat, len(catRows))
 		}
 
-		exporter.Update(parsedRows)
+		log.Debug().Msgf("%s", extractedCategories)
+
+		// Collect all rows from all categories
+		allRows := make([]internal.TurbostatRow, 0)
+		for _, v := range parsedRows {
+			for _, r := range v {
+				allRows = append(allRows, *r)
+			}
+		}
+		exporter.Update(allRows)
 	}
 }
 
@@ -91,12 +97,12 @@ func startServer(ctx context.Context, updateFunc func(time.Duration)) {
 		ticker := time.NewTicker(time.Duration(backgroundCollectSeconds) * time.Second)
 
 		go func() {
-			updateFunc(defaultSleepTimer)
+			updateFunc(defaultSleepTimer * time.Second)
 			for {
 				select {
 				case <-ticker.C:
 					log.Debug().Msgf("Ticker update")
-					updateFunc(defaultSleepTimer)
+					updateFunc(defaultSleepTimer * time.Second)
 				case <-ctx.Done():
 					log.Debug().Msgf("Stop background updater")
 					ticker.Stop()
@@ -106,12 +112,12 @@ func startServer(ctx context.Context, updateFunc func(time.Duration)) {
 		}()
 	}
 
-	var metricsHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+	metricsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !isBackgroundMode {
-			updateFunc(defaultSleepTimer)
+			updateFunc(defaultSleepTimer * time.Second)
 		}
 		promhttp.Handler().ServeHTTP(w, r)
-	}
+	})
 
 	if basicAuthEnabled {
 		metricsHandler = internal.BasicAuth(metricsHandler, basicAuthUsername, basicAuthPassword)
@@ -120,34 +126,6 @@ func startServer(ctx context.Context, updateFunc func(time.Duration)) {
 	http.Handle("/metrics", metricsHandler)
 	log.Info().Msgf("Starting server on %s", listenAddr)
 	log.Fatal().Err(http.ListenAndServe(listenAddr, nil)).Msg("")
-}
-
-func parseTurbostatOutput(raw string) ([]string, [][]string, error) {
-	var rows [][]string
-
-	r := csv.NewReader(strings.NewReader(raw))
-	r.FieldsPerRecord = -1 // disable row length checks as they have different lengths
-	r.Comma = '\t'
-
-	headers, err := r.Read()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse headers: %w", err)
-	}
-
-	for {
-		row, err := r.Read()
-		if err == io.EOF {
-			break
-		}
-
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to parse column: %w", err)
-		}
-
-		rows = append(rows, row)
-	}
-
-	return headers, rows, nil
 }
 
 func executeProgram(collectTimeSeconds int) (string, error) {
@@ -159,18 +137,16 @@ func executeProgram(collectTimeSeconds int) (string, error) {
 			return "", err
 		}
 		return string(content), nil
-	} else {
-		cmd = exec.Command("turbostat", "--quiet", "sleep", strconv.Itoa(collectTimeSeconds))
 	}
+	cmd = exec.Command("turbostat", "--quiet", "sleep", strconv.Itoa(collectTimeSeconds))
 	log.Trace().Msgf("Executing command: %s", cmd.Args)
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 
-	err := cmd.Run()
-	if err != nil {
-		log.Fatal().Msgf("Failed to run turbostat: %v", err)
+	if err := cmd.Run(); err != nil {
+		log.Fatal().Err(err).Msg("Failed to run turbostat")
 		return "", err
 	}
 
@@ -188,8 +164,6 @@ func parseConfiguration() {
 			zerolog.SetGlobalLevel(level)
 		}
 	}
-
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	// use the default if not set
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEFAULT_COLLECT_SECONDS"); ok {

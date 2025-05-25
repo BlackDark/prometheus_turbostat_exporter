@@ -1,54 +1,54 @@
 package internal
 
 import (
-	"maps"
-
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type TurbostatExporter struct {
-	coreStatesPercent      *prometheus.GaugeVec
-	cpuStates              *prometheus.GaugeVec
-	cpuStatesPercent       *prometheus.GaugeVec
-	total                  *prometheus.GaugeVec
-	totalCoreStatesPercent *prometheus.GaugeVec // TODO: unused
-	totalCpuStates         *prometheus.GaugeVec // TODO: unused
-	totalCpuStatesPercent  *prometheus.GaugeVec // TODO: unused
-	totalPercent           *prometheus.GaugeVec
-	totalPkgStatesPercent  *prometheus.GaugeVec
+	total           *prometheus.GaugeVec
+	totalPercent    *prometheus.GaugeVec
+	packages        *prometheus.GaugeVec
+	packagesPercent *prometheus.GaugeVec
+	cores           *prometheus.GaugeVec
+	coresPercent    *prometheus.GaugeVec
+	cpus            *prometheus.GaugeVec
+	cpusPercent     *prometheus.GaugeVec
 }
 
 func NewTurbostatExporter() *TurbostatExporter {
-	labels := []string{"package", "core", "cpu", "type"}
+	labelsTotal := []string{"type"}
+	labelsPackage := append(labelsTotal, "package")
+	labelsCore := append(labelsPackage, "core")
+	labelsCpu := append(labelsCore, "cpu")
 
 	exporter := &TurbostatExporter{
-		coreStatesPercent: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "turbostats_core_states_percent",
-		}, labels),
-		cpuStates: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "turbostats_cpu_states",
-		}, labels),
-		cpuStatesPercent: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "turbostats_cpu_states_percent",
-		}, labels),
-		total: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "turbostats_total",
-		}, labels),
-		totalCoreStatesPercent: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "turbostats_total_core_states_percent",
-		}, labels),
-		totalCpuStates: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "turbostats_total_cpu_states",
-		}, labels),
-		totalCpuStatesPercent: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "turbostats_total_cpu_states_percent",
-		}, labels),
+		packages: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "turbostat_packages",
+			Help: "Metrics for the whole package",
+		}, []string{"package", "type"}),
+		cores: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "turbostat_cores",
+		}, []string{"package", "core", "type"}),
+		cpus: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "turbostat_cpus",
+		}, []string{"package", "core", "cpu", "type"}),
+		packagesPercent: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "turbostat_packages_percent",
+		}, labelsPackage),
+		coresPercent: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "turbostat_cores_percent",
+		}, labelsCore),
+		cpusPercent: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "turbostat_cpus_percent",
+		}, labelsCpu),
 		totalPercent: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "turbostats_total_percent",
-		}, labels),
-		totalPkgStatesPercent: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "turbostats_total_pkg_states_percent",
-		}, labels),
+			Name: "turbostat_total_percent",
+			Help: "Metrics for the whole system in percentages. First line in output.",
+		}, labelsTotal),
+		total: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "turbostat_total",
+			Help: "Metrics for the whole system. First line in output.",
+		}, labelsTotal),
 	}
 	exporter.register()
 
@@ -57,63 +57,68 @@ func NewTurbostatExporter() *TurbostatExporter {
 
 func (e *TurbostatExporter) register() {
 	prometheus.MustRegister(
-		e.coreStatesPercent,
-		e.cpuStates,
-		e.cpuStatesPercent,
 		e.total,
-		e.totalCoreStatesPercent,
-		e.totalCpuStates,
-		e.totalCpuStatesPercent,
+		e.packages,
+		e.cores,
+		e.cpus,
+		e.packagesPercent,
+		e.coresPercent,
+		e.cpusPercent,
 		e.totalPercent,
-		e.totalPkgStatesPercent,
 	)
+}
+
+func (e *TurbostatExporter) resetAll() {
+	e.packages.Reset()
+	e.cores.Reset()
+	e.cpus.Reset()
+	e.packagesPercent.Reset()
+	e.coresPercent.Reset()
+	e.cpusPercent.Reset()
+	e.total.Reset()
+	e.totalPercent.Reset()
 }
 
 // Update uses the collected turbostat data of all TurbostatRows and configures the prometheus metrics.
 func (e *TurbostatExporter) Update(rows []TurbostatRow) {
+	e.resetAll()
+	coreRowsPresent := false
 	for _, row := range rows {
-		baseLabels := prometheus.Labels{}
-		baseLabels["package"] = row.Pkg
-		baseLabels["core"] = row.Core
-		baseLabels["cpu"] = row.Cpu
-		// NOTE: we could configure special metrics if e.g. package == '-'
-
-		for t, v := range row.CpuStates {
-			labels := mergeLabels(baseLabels, prometheus.Labels{"type": t})
-			e.cpuStates.With(labels).Set(v)
+		switch row.Category {
+		case "package":
+			for t, v := range row.Other {
+				e.packages.With(prometheus.Labels{"package": row.Pkg, "type": sanitizeHeader(t)}).Set(v)
+			}
+			for t, v := range row.OtherPercent {
+				e.packagesPercent.With(prometheus.Labels{"package": row.Pkg, "type": sanitizeHeader(t)}).Set(v)
+			}
+		case "core":
+			coreRowsPresent = true
+			for t, v := range row.Other {
+				e.cores.With(prometheus.Labels{"package": row.Pkg, "core": row.Core, "type": sanitizeHeader(t)}).Set(v)
+			}
+			for t, v := range row.OtherPercent {
+				e.coresPercent.With(prometheus.Labels{"package": row.Pkg, "core": row.Core, "type": sanitizeHeader(t)}).Set(v)
+			}
+		case "cpu":
+			for t, v := range row.Other {
+				e.cpus.With(prometheus.Labels{"package": row.Pkg, "core": row.Core, "cpu": row.Cpu, "type": sanitizeHeader(t)}).Set(v)
+			}
+			for t, v := range row.OtherPercent {
+				e.cpusPercent.With(prometheus.Labels{"package": row.Pkg, "core": row.Core, "cpu": row.Cpu, "type": sanitizeHeader(t)}).Set(v)
+			}
+		case "total":
+			for t, v := range row.Other {
+				e.total.With(prometheus.Labels{"type": sanitizeHeader(t)}).Set(v)
+			}
+			for t, v := range row.OtherPercent {
+				e.totalPercent.With(prometheus.Labels{"type": sanitizeHeader(t)}).Set(v)
+			}
 		}
-
-		for t, v := range row.CpuStatesPercent {
-			labels := mergeLabels(baseLabels, prometheus.Labels{"type": t})
-			e.cpuStatesPercent.With(labels).Set(v)
-		}
-
-		for t, v := range row.CoreStatesPercent {
-			labels := mergeLabels(baseLabels, prometheus.Labels{"type": t})
-			e.coreStatesPercent.With(labels).Set(v)
-		}
-
-		for t, v := range row.Other {
-			labels := mergeLabels(baseLabels, prometheus.Labels{"type": t})
-			e.total.With(labels).Set(v)
-		}
-
-		for t, v := range row.OtherPercent {
-			labels := mergeLabels(baseLabels, prometheus.Labels{"type": t})
-			e.totalPercent.With(labels).Set(v)
-		}
-
-		for t, v := range row.PkgStatesPercent {
-			labels := mergeLabels(baseLabels, prometheus.Labels{"type": t})
-			e.totalPkgStatesPercent.With(labels).Set(v)
-		}
-
 	}
-}
-
-func mergeLabels(a, b prometheus.Labels) prometheus.Labels {
-	res := make(prometheus.Labels, len(a)+len(b))
-	maps.Copy(res, a)
-	maps.Copy(res, b)
-	return res
+	// If no core rows, set a dummy value so the metric appears
+	if !coreRowsPresent {
+		e.cores.With(prometheus.Labels{"package": "0", "core": "0", "type": "dummy"}).Set(0)
+		e.coresPercent.With(prometheus.Labels{"package": "0", "core": "0", "type": "dummy"}).Set(0)
+	}
 }
