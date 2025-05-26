@@ -82,7 +82,6 @@ func (e *TurbostatExporter) resetAll() {
 // Update uses the collected turbostat data of all TurbostatRows and configures the prometheus metrics.
 func (e *TurbostatExporter) Update(rows []TurbostatRow) {
 	e.resetAll()
-	coreRowsPresent := false
 	for _, row := range rows {
 		switch row.Category {
 		case "package":
@@ -93,7 +92,6 @@ func (e *TurbostatExporter) Update(rows []TurbostatRow) {
 				e.packagesPercent.With(prometheus.Labels{"package": row.Pkg, "type": sanitizeHeader(t)}).Set(v)
 			}
 		case "core":
-			coreRowsPresent = true
 			for t, v := range row.Other {
 				e.cores.With(prometheus.Labels{"package": row.Pkg, "core": row.Core, "type": sanitizeHeader(t)}).Set(v)
 			}
@@ -115,10 +113,5 @@ func (e *TurbostatExporter) Update(rows []TurbostatRow) {
 				e.totalPercent.With(prometheus.Labels{"type": sanitizeHeader(t)}).Set(v)
 			}
 		}
-	}
-	// If no core rows, set a dummy value so the metric appears
-	if !coreRowsPresent {
-		e.cores.With(prometheus.Labels{"package": "0", "core": "0", "type": "dummy"}).Set(0)
-		e.coresPercent.With(prometheus.Labels{"package": "0", "core": "0", "type": "dummy"}).Set(0)
 	}
 }

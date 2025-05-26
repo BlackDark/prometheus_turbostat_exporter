@@ -11,8 +11,9 @@ import (
 
 type TurbostatParser struct {
 	// probably to complex for such a simple thing
-	colParsers []columnParseFunc
-	categories map[int]string
+	colParsers          []columnParseFunc
+	rowLengthToCategory map[int]string
+	categoryToRowLength map[string]int
 }
 
 type columnParseFunc func(row *TurbostatRow, col string)
@@ -136,15 +137,16 @@ func sanitizeHeader(h string) string {
 
 // help struct to identify what information a row contains
 func (p *TurbostatParser) ParseCategories(headers []string, rows [][]string) map[int]string {
-	if p.categories != nil {
-		return p.categories
+	if p.rowLengthToCategory != nil {
+		return p.rowLengthToCategory
 	}
 
 	lengthMap := make(map[int]int)
-	categoryMap := map[int]string{}
+	rowLengthToCategory := map[int]string{}
+	categoryToRowLength := map[string]int{}
 
 	if len(headers) == 0 || len(rows) == 0 {
-		return categoryMap
+		return rowLengthToCategory
 	}
 
 	for _, row := range rows {
@@ -162,27 +164,48 @@ func (p *TurbostatParser) ParseCategories(headers []string, rows [][]string) map
 	}
 	sort.Ints(lengths)
 
+	log.Debug().Msgf("Found %d different row lengths: %v", len(lengths), lengths)
+
 	switch len(lengths) {
 	case 4:
-		categoryMap[lengths[3]] = "total"
-		categoryMap[lengths[2]] = "package"
-		categoryMap[lengths[1]] = "core"
-		categoryMap[lengths[0]] = "cpu"
+		rowLengthToCategory[lengths[3]] = "total"
+		rowLengthToCategory[lengths[2]] = "package"
+		rowLengthToCategory[lengths[1]] = "core"
+		rowLengthToCategory[lengths[0]] = "cpu"
+
+		categoryToRowLength["total"] = lengths[3]
+		categoryToRowLength["package"] = lengths[2]
+		categoryToRowLength["core"] = lengths[1]
+		categoryToRowLength["cpu"] = lengths[0]
 	case 3:
-		categoryMap[lengths[2]] = "package"
-		categoryMap[lengths[1]] = "core"
-		categoryMap[lengths[0]] = "cpu"
-	case 2:
-		categoryMap[lengths[1]] = "core"
-		categoryMap[lengths[0]] = "cpu"
+		rowLengthToCategory[lengths[2]] = "package"
+		rowLengthToCategory[lengths[1]] = "core"
+		rowLengthToCategory[lengths[0]] = "cpu"
+
+		categoryToRowLength["total"] = lengths[2]
+		categoryToRowLength["package"] = lengths[2]
+		categoryToRowLength["core"] = lengths[1]
+		categoryToRowLength["cpu"] = lengths[0]
 	default:
-		categoryMap[lengths[len(lengths)-1]] = "total"
-		categoryMap[lengths[0]] = "cpu"
+		rowLengthToCategory[lengths[len(lengths)-1]] = "total"
+		rowLengthToCategory[lengths[len(lengths)-1]] = "package"
+		rowLengthToCategory[lengths[len(lengths)-1]] = "core"
+		rowLengthToCategory[lengths[0]] = "cpu"
+
+		categoryToRowLength["total"] = lengths[len(lengths)-1]
+		categoryToRowLength["package"] = lengths[len(lengths)-1]
+		categoryToRowLength["core"] = lengths[len(lengths)-1]
+		categoryToRowLength["cpu"] = lengths[0]
 	}
 
-	p.categories = categoryMap
+	for k, v := range categoryToRowLength {
+		log.Debug().Msgf("Mapped category %s to length: %d", k, v)
+	}
 
-	return categoryMap
+	p.rowLengthToCategory = rowLengthToCategory
+	p.categoryToRowLength = categoryToRowLength
+
+	return rowLengthToCategory
 }
 
 func (p *TurbostatParser) ParseRowSimple(category string, headers []string, row []string) map[string][]*TurbostatRow {
@@ -208,15 +231,33 @@ func (p *TurbostatParser) ParseRowSimple(category string, headers []string, row 
 		} else {
 			tr.Core = row[0]
 			tr.Cpu = row[1]
+			log.Info().Msgf("Core %s and CPU %s found, but no Package column. Assuming single socket system.", tr.Core, tr.Cpu)
 			col = 2
 		}
 	}
+
+	var (
+		cpuResult     *TurbostatRow
+		coreResult    *TurbostatRow
+		packageResult *TurbostatRow
+	)
 
 	for i := col; i < len(row); i++ {
 		val, err := strconv.ParseFloat(row[i], 64)
 		if err != nil {
 			continue
 		}
+
+		if i > p.categoryToRowLength["cpu"] && cpuResult == nil {
+			cpuResult = tr.CloneWithCategory("cpu")
+		}
+		if i > p.categoryToRowLength["core"] && coreResult == nil {
+			coreResult = tr.CloneWithCategory("core")
+		}
+		if i > p.categoryToRowLength["package"] && packageResult == nil {
+			packageResult = tr.CloneWithCategory("package")
+		}
+
 		if i < len(headers) {
 			key := headers[i]
 			if strings.Contains(key, "%") {
@@ -231,17 +272,16 @@ func (p *TurbostatParser) ParseRowSimple(category string, headers []string, row 
 	// add duplicates where necessary
 	switch category {
 	case "package":
-		coreResult := *tr
-		coreResult.Category = "core"
-		result["core"] = append(result["core"], &coreResult)
-
-		cpuResult := *tr
-		cpuResult.Category = "cpu"
-		result["cpu"] = append(result["cpu"], &cpuResult)
+		if coreResult != nil {
+			result["core"] = append(result["core"], coreResult)
+		}
+		if cpuResult != nil {
+			result["cpu"] = append(result["cpu"], cpuResult)
+		}
 	case "core":
-		cpuResult := *tr
-		cpuResult.Category = "cpu"
-		result["cpu"] = append(result["cpu"], &cpuResult)
+		if cpuResult != nil {
+			result["cpu"] = append(result["cpu"], cpuResult)
+		}
 	}
 
 	return result
