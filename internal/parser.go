@@ -231,7 +231,6 @@ func (p *TurbostatParser) ParseRowSimple(category string, headers []string, row 
 		} else {
 			tr.Core = row[0]
 			tr.Cpu = row[1]
-			log.Info().Msgf("Core %s and CPU %s found, but no Package column. Assuming single socket system.", tr.Core, tr.Cpu)
 			col = 2
 		}
 	}
