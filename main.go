@@ -138,8 +138,10 @@ func executeProgram(collectTimeSeconds int) (string, error) {
 		}
 		return string(content), nil
 	}
-	cmd = exec.Command("turbostat", "--quiet", "sleep", strconv.Itoa(collectTimeSeconds))
-	log.Trace().Msgf("Executing command: %s", cmd.Args)
+	// Use /bin/sh -c to run turbostat as a child of the shell, not Go
+	turbostatCmd := fmt.Sprintf("turbostat --quiet sleep %d", collectTimeSeconds)
+	cmd = exec.Command("/bin/sh", "-c", turbostatCmd)
+	log.Trace().Msgf("Executing command: %s", turbostatCmd)
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
