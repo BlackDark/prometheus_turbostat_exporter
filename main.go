@@ -52,7 +52,7 @@ func main() {
 
 func createUpdateFunc(parser *internal.TurbostatParser, exporter *internal.TurbostatExporter) func(time.Duration) {
 	return func(collectionTimeSecnds time.Duration) {
-		content, err := executeProgram(0)
+		content, err := executeProgram(int(collectionTimeSecnds.Seconds()))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to run turbostat")
 		}
