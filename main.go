@@ -2,14 +2,13 @@ package main
 
 import (
 	"blackdark/turbostat-exporter/internal"
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -130,46 +129,30 @@ func startServer(ctx context.Context, updateFunc func(time.Duration)) {
 }
 
 func executeProgram(collectTimeSeconds int) (string, error) {
+	var cmd *exec.Cmd
+
 	if isCommandCat {
-		content, err := os.ReadFile("data/prox.tsv")
+		content, err := os.ReadFile("data/sandy-bridge.tsv")
 		if err != nil {
 			return "", err
 		}
 		return string(content), nil
 	}
-
-	// Create a temp file for turbostat output
-	dir := os.TempDir()
-	tmpFile := filepath.Join(dir, fmt.Sprintf("turbostat_%d_%d.tsv", os.Getpid(), rand.Intn(1000000)))
-
-	turbostatCmd := fmt.Sprintf("turbostat --quiet sleep %d > %s", collectTimeSeconds, tmpFile)
-	cmd := exec.Command("/bin/sh", "-c", turbostatCmd)
+	// Use /bin/sh -c to run turbostat as a child of the shell, not Go
+	turbostatCmd := fmt.Sprintf("turbostat --quiet sleep %d", collectTimeSeconds)
+	cmd = exec.Command("/bin/sh", "-c", turbostatCmd)
 	log.Trace().Msgf("Executing command: %s", turbostatCmd)
 
-	if err := cmd.Start(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to start turbostat")
-		return "", err
-	}
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
 
-	// Sleep in Go for the measurement duration plus a small buffer
-	time.Sleep(time.Duration(collectTimeSeconds)*time.Second + 500*time.Millisecond)
-
-	// Wait for the turbostat process to finish
-	err := cmd.Wait()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to run turbostat")
 		return "", err
 	}
 
-	// Read the output from the temp file
-	content, err := os.ReadFile(tmpFile)
-	if err != nil {
-		return "", err
-	}
-	// Clean up the temp file
-	_ = os.Remove(tmpFile)
-
-	return string(content), nil
+	return out.String(), nil
 }
 
 func parseConfiguration() {
