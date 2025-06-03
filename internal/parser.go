@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -246,6 +247,8 @@ func (p *TurbostatParser) ParseRowSimple(category string, headers []string, row 
 		if err != nil {
 			continue
 		}
+		// round to 2 decimal places
+		val = math.Round(val*100) / 100
 
 		if i > p.categoryToRowLength["cpu"] && cpuResult == nil {
 			cpuResult = tr.CloneWithCategory("cpu")
