@@ -20,7 +20,7 @@ import (
 
 var (
 	Version                                = "development"
-	defaultSleepTimer        time.Duration = 5
+	defaultSleepTimer        time.Duration = 5 * time.Second
 	isCommandCat                           = false
 	isBackgroundMode                       = false
 	backgroundCollectSeconds               = 30
@@ -50,8 +50,8 @@ func main() {
 }
 
 func createUpdateFunc(parser *internal.TurbostatParser, exporter *internal.TurbostatExporter) func(time.Duration) {
-	return func(collectionTimeSecnds time.Duration) {
-		content, err := executeProgram(int(collectionTimeSecnds.Seconds()))
+	return func(sleepDuration time.Duration) {
+		content, err := executeProgram(int(sleepDuration.Seconds()))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to run turbostat")
 		}
