@@ -179,15 +179,18 @@ func parseConfiguration() {
 	log.Info().Msgf("Configured turbostat collecting time of %s", defaultSleepTimer)
 
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEBUG_CAT_EXEC"); ok {
-		if val == "true" {
-			isCommandCat = true
+		if convertVal, err := strconv.ParseBool(val); err == nil {
+			isCommandCat = convertVal
+		}
+
+		if isCommandCat {
 			log.Info().Msgf("Running in testing 'cat' mode. Will not execute turbostat.")
 		}
 	}
 
 	if val, ok := os.LookupEnv("TURBOSTAT_COLLECT_IN_BACKGROUND"); ok {
-		if val == "true" {
-			isBackgroundMode = true
+		if convertVal, err := strconv.ParseBool(val); err == nil {
+			isBackgroundMode = convertVal
 		}
 	}
 
@@ -208,9 +211,7 @@ func parseConfiguration() {
 	// use the default if not set
 	if val, ok := os.LookupEnv("TURBOSTAT_BASIC_AUTH_ENABLED"); ok {
 		if convertVal, err := strconv.ParseBool(val); err == nil {
-			if convertVal {
-				basicAuthEnabled = true
-			}
+			basicAuthEnabled = convertVal
 		}
 	}
 
