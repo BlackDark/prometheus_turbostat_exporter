@@ -169,8 +169,10 @@ func parseConfiguration() {
 
 	// use the default if not set
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEFAULT_COLLECT_SECONDS"); ok {
-		if convertVal, err := strconv.Atoi(val); err == nil {
+		if convertVal, err := strconv.Atoi(val); err == nil && convertVal > 0 {
 			defaultSleepTimer = time.Duration(convertVal) * time.Second
+		} else {
+			log.Warn().Msgf("TURBOSTAT_EXPORTER_DEFAULT_COLLECT_SECONDS must be a positive integer. Using default: %s", defaultSleepTimer)
 		}
 	}
 
@@ -190,8 +192,10 @@ func parseConfiguration() {
 	}
 
 	if val, ok := os.LookupEnv("TURBOSTAT_COLLECT_IN_BACKGROUND_INTERVAL"); ok {
-		if convertVal, err := strconv.Atoi(val); err == nil {
+		if convertVal, err := strconv.Atoi(val); err == nil && convertVal > 0 {
 			backgroundCollectSeconds = time.Duration(convertVal) * time.Second
+		} else {
+			log.Warn().Msgf("TURBOSTAT_COLLECT_IN_BACKGROUND_INTERVAL must be a positive integer. Using default: %s", backgroundCollectSeconds)
 		}
 	}
 
