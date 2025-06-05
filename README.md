@@ -25,18 +25,13 @@ Part of the output from the scrape:
 
 ```txt
 ...
-turbostat_cpu_states_percent{num_cpu="6",type="c1e"} 0.03
-turbostat_cpu_states_percent{num_cpu="6",type="c3"} 0.05
-turbostat_cpu_states_percent{num_cpu="6",type="c6"} 1.37
-turbostat_cpu_states_percent{num_cpu="6",type="c7s"} 0
-turbostat_cpu_states_percent{num_cpu="6",type="c8"} 1.11
-turbostat_cpu_states_percent{num_cpu="6",type="c9"} 0.13
-turbostat_cpu_states_percent{num_cpu="6",type="poll"} 0
-turbostat_cpu_states_percent{num_cpu="7",type="c1"} 0.01
-turbostat_cpu_states_percent{num_cpu="7",type="c10"} 96.91
-turbostat_cpu_states_percent{num_cpu="7",type="c1e"} 0.03
-turbostat_cpu_states_percent{num_cpu="7",type="c3"} 0.01
-turbostat_cpu_states_percent{num_cpu="7",type="c6"} 1.36
+# HELP turbostat_cores 
+# TYPE turbostat_cores gauge
+turbostat_cores{core="0",package="0",type="avg_mhz"} 23
+turbostat_cores{core="0",package="0",type="bzy_mhz"} 1228
+turbostat_cores{core="0",package="0",type="c1"} 2
+turbostat_cores{core="0",package="0",type="c1e"} 275
+turbostat_cores{core="0",package="0",type="c3"} 0
 ...
 ```
 
