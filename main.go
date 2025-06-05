@@ -23,7 +23,7 @@ var (
 	defaultSleepTimer        time.Duration = 5 * time.Second
 	isCommandCat                           = false
 	isBackgroundMode                       = false
-	backgroundCollectSeconds               = 30
+	backgroundCollectSeconds time.Duration = 30 * time.Second
 	basicAuthUsername        string
 	basicAuthPassword        string
 	basicAuthEnabled         = false
@@ -51,7 +51,7 @@ func main() {
 
 func createUpdateFunc(parser *internal.TurbostatParser, exporter *internal.TurbostatExporter) func(time.Duration) {
 	return func(sleepDuration time.Duration) {
-		content, err := executeProgram(int(sleepDuration.Seconds()))
+		content, err := executeProgram(int(sleepDuration / time.Second))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to run turbostat")
 		}
@@ -94,15 +94,15 @@ func startServer(ctx context.Context, updateFunc func(time.Duration)) {
 
 	if isBackgroundMode {
 		log.Debug().Msgf("Starting ticker")
-		ticker := time.NewTicker(time.Duration(backgroundCollectSeconds) * time.Second)
+		ticker := time.NewTicker(backgroundCollectSeconds)
 
 		go func() {
-			updateFunc(defaultSleepTimer * time.Second)
+			updateFunc(defaultSleepTimer)
 			for {
 				select {
 				case <-ticker.C:
 					log.Debug().Msgf("Ticker update")
-					updateFunc(defaultSleepTimer * time.Second)
+					updateFunc(defaultSleepTimer)
 				case <-ctx.Done():
 					log.Debug().Msgf("Stop background updater")
 					ticker.Stop()
@@ -114,7 +114,7 @@ func startServer(ctx context.Context, updateFunc func(time.Duration)) {
 
 	metricsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !isBackgroundMode {
-			updateFunc(defaultSleepTimer * time.Second)
+			updateFunc(defaultSleepTimer)
 		}
 		promhttp.Handler().ServeHTTP(w, r)
 	})
@@ -170,11 +170,11 @@ func parseConfiguration() {
 	// use the default if not set
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEFAULT_COLLECT_SECONDS"); ok {
 		if convertVal, err := strconv.Atoi(val); err == nil {
-			defaultSleepTimer = time.Duration(convertVal)
+			defaultSleepTimer = time.Duration(convertVal) * time.Second
 		}
 	}
 
-	log.Info().Msgf("Configured turbostat collecting time of %d seconds", defaultSleepTimer)
+	log.Info().Msgf("Configured turbostat collecting time of %s", defaultSleepTimer)
 
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_DEBUG_CAT_EXEC"); ok {
 		if val == "true" {
@@ -191,12 +191,12 @@ func parseConfiguration() {
 
 	if val, ok := os.LookupEnv("TURBOSTAT_COLLECT_IN_BACKGROUND_INTERVAL"); ok {
 		if convertVal, err := strconv.Atoi(val); err == nil {
-			backgroundCollectSeconds = convertVal
+			backgroundCollectSeconds = time.Duration(convertVal) * time.Second
 		}
 	}
 
 	if isBackgroundMode {
-		log.Info().Msgf("Running collector in background with interval %d.", backgroundCollectSeconds)
+		log.Info().Msgf("Running collector in background with interval %s.", backgroundCollectSeconds)
 	} else {
 		log.Info().Msgf("Running collector in active mode (on request will execute turbostat)")
 	}
