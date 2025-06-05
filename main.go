@@ -22,8 +22,8 @@ var (
 	Version                                = "development"
 	defaultSleepTimer        time.Duration = 5 * time.Second
 	isCommandCat                           = false
-	isBackgroundMode                       = false
-	backgroundCollectSeconds time.Duration = 30 * time.Second
+	isBackgroundMode                       = true
+	backgroundCollectSeconds time.Duration = 60 * time.Second
 	basicAuthUsername        string
 	basicAuthPassword        string
 	basicAuthEnabled         = false
