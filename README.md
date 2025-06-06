@@ -3,6 +3,10 @@
 This Go application is a Prometheus exporter for turbostat metrics. 
 It collects CPU and core statistics using the `turbostat` tool and exposes them in a format that Prometheus can scrape.
 
+## Dashboard
+
+You can use the provided dashboard in the folder `dashboards` or use this shared ones: https://grafana.com/grafana/dashboards/23537
+
 ## Features
 
 - **Prometheus Integration**: Exposes metrics via an HTTP server for Prometheus to scrape.
