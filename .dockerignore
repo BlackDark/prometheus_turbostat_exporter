@@ -1,0 +1,11 @@
+.git
+.github
+.claude
+docs
+dashboards
+data
+helm
+*.md
+.env
+.env.*
+docker-compose.yml
