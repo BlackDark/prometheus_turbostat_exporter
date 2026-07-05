@@ -130,6 +130,21 @@ func (p *TurbostatParser) ParseRows(inputRows [][]string) ([]TurbostatRow, error
 	return rows, nil
 }
 
+// isTurbostatHeaderLine checks whether fields look like a genuine turbostat
+// header row. Every turbostat header starts with "Package", "Core", or "CPU"
+// depending on the system topology (see SetupColumnParsers).
+func isTurbostatHeaderLine(fields []string) bool {
+	if len(fields) == 0 {
+		return false
+	}
+	switch fields[0] {
+	case "Package", "Core", "CPU":
+		return true
+	default:
+		return false
+	}
+}
+
 func sanitizeHeader(h string) string {
 	res := strings.ReplaceAll(h, "%", "")
 	res = strings.ToLower(res)
@@ -341,8 +356,15 @@ func ParseTurbostatOutput(raw string) ([]string, [][]string, error) {
 			continue
 		}
 
-		// If headers not set, use this line as headers
+		// If headers not set, use this line as headers - but only if it actually
+		// looks like a turbostat header. turbostat prints warnings (e.g. about
+		// insufficient privileges to access /dev/cpu/*/msr) on the same stream
+		// before the real header line, and those must not be mistaken for it.
 		if len(headers) == 0 {
+			if !isTurbostatHeaderLine(fields) {
+				log.Warn().Msgf("Ignoring unexpected line before turbostat header: %s", line)
+				continue
+			}
 			headers = fields
 			continue
 		}
