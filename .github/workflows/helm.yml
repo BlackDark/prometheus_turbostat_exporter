@@ -1,0 +1,78 @@
+name: Helm Chart Release
+
+on:
+  push:
+    tags:
+      - "helm-v*.*.*"
+
+permissions:
+  contents: read
+
+env:
+  CHART_PATH: helm/turbostat-exporter
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.2.2
+
+      - name: Determine version from tag
+        id: version
+        run: |
+          set -euo pipefail
+          echo "version=${GITHUB_REF_NAME#helm-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify Chart.yaml version matches the tag
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          chart_version="$(helm show chart "$CHART_PATH" | awk -F': ' '/^version:/ {print $2}')"
+          if [ "$chart_version" != "$EXPECTED_VERSION" ]; then
+            echo "::error::Chart.yaml version ($chart_version) does not match tag $GITHUB_REF_NAME (expected $EXPECTED_VERSION). Bump Chart.yaml's version and retag."
+            exit 1
+          fi
+
+      - name: Lint chart
+        run: helm lint "$CHART_PATH"
+
+      - name: Package chart
+        run: helm package "$CHART_PATH" -d dist
+
+      - name: Log in to GHCR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_ACTOR: ${{ github.actor }}
+        run: helm registry login ghcr.io --username "$GH_ACTOR" --password-stdin <<< "$GH_TOKEN"
+
+      - name: Push chart to GHCR
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          owner_lower="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          helm push "dist/turbostat-exporter-${VERSION}.tgz" "oci://ghcr.io/${owner_lower}/charts"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Helm chart v${VERSION}" \
+            --generate-notes \
+            "dist/turbostat-exporter-${VERSION}.tgz"
