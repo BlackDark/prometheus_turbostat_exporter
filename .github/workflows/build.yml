@@ -44,7 +44,7 @@ jobs:
       #     path: turbostat-exporter-${{ matrix.goos }}-${{ matrix.goarch }}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: github.event_name == 'pull_request' # Conditionally upload on PRs
         with:
           name: turbostat-exporter-${{ matrix.goos }}-${{ matrix.goarch }}
