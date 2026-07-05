@@ -16,7 +16,7 @@ jobs:
         goarch: [amd64, arm64]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Inject slug/short variables
         uses: rlespinasse/github-slug-action@v4
