@@ -77,7 +77,10 @@ jobs:
           retention-days: 7 # Specify retention period
 
       - name: Release
-        if: startsWith(github.ref, 'refs/tags/')
+        # Match only the app's v*.*.* tags, not helm-vX.Y.Z chart-release
+        # tags (see .github/workflows/helm.yml) - both would otherwise
+        # race to create/attach to a GitHub Release with the same tag name.
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

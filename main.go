@@ -165,7 +165,11 @@ func executeProgram(collectTimeSeconds int) (string, error) {
 
 func parseConfiguration() {
 	if err := godotenv.Load(); err != nil {
-		log.Debug().Msg("No .env file found, relying on process environment")
+		if os.IsNotExist(err) {
+			log.Debug().Msg("No .env file found, relying on process environment")
+		} else {
+			log.Warn().Err(err).Msg("Failed to load .env file, relying on process environment")
+		}
 	}
 
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_LOG_LEVEL"); ok {
