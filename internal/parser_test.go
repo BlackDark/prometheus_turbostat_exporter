@@ -119,6 +119,36 @@ func TestParseRows_SingleRow(t *testing.T) {
 	}
 }
 
+// Reproduces https://github.com/BlackDark/prometheus_turbostat_exporter/issues/11
+// When turbostat lacks sufficient privileges (e.g. no root/CAP_SYS_RAWIO), it prints
+// a warning sentence on stdout/stderr before the real header line. main.go merges
+// stdout+stderr, so that sentence must not be mistaken for the turbostat header.
+func TestParseOutput_PrivilegeWarningBeforeHeader(t *testing.T) {
+	headers, rows, err := ParseTurbostatOutput(`Some of the counters may not be available to access /dev/cpu/0/msr.
+Core	CPU	Avg_MHz	Busy%
+-	-	125	6.57
+0	0	80	9.91
+`)
+
+	if err != nil {
+		t.Fatalf("expected parsing turbostat output to succeed, got error: %v", err)
+	}
+
+	wantHeaders := []string{"Core", "CPU", "Avg_MHz", "Busy%"}
+	if len(headers) != len(wantHeaders) {
+		t.Fatalf("expected headers %v, got %v", wantHeaders, headers)
+	}
+	for i, h := range wantHeaders {
+		if headers[i] != h {
+			t.Errorf("expected header[%d] = %q, got %q", i, h, headers[i])
+		}
+	}
+
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 data rows, got %d: %v", len(rows), rows)
+	}
+}
+
 func TestParseOutput_RealWithSeconds(t *testing.T) {
 	headers, rows, err := ParseTurbostatOutput(`0.007923 sec
 Core CPU Test
