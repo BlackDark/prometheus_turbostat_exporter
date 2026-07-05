@@ -24,7 +24,7 @@ jobs:
           short-length: 8 # Same as v3 and before
 
       - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.24"
           cache-dependency-path: go.sum
