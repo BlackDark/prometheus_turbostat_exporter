@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "turbostat-exporter.fullname" . }}
+  labels:
+    {{- include "turbostat-exporter.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "turbostat-exporter.selectorLabels" . | nindent 6 }}
+  updateStrategy:
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+  template:
+    metadata:
+      labels:
+        {{- include "turbostat-exporter.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "turbostat-exporter.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: turbostat-exporter
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+          env:
+            - name: TURBOSTAT_LISTEN_ADDR
+              value: "0.0.0.0:{{ .Values.containerPort }}"
+            - name: TURBOSTAT_EXPORTER_LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            - name: TURBOSTAT_EXPORTER_DEFAULT_COLLECT_SECONDS
+              value: {{ .Values.defaultCollectSeconds | quote }}
+            - name: TURBOSTAT_COLLECT_IN_BACKGROUND
+              value: {{ .Values.background.enabled | quote }}
+            - name: TURBOSTAT_COLLECT_IN_BACKGROUND_INTERVAL
+              value: {{ .Values.background.intervalSeconds | quote }}
+            - name: TURBOSTAT_BASIC_AUTH_ENABLED
+              value: {{ .Values.basicAuth.enabled | quote }}
+            {{- if .Values.basicAuth.enabled }}
+            - name: TURBOSTAT_BASIC_AUTH_USERNAME
+              value: {{ .Values.basicAuth.username | quote }}
+            - name: TURBOSTAT_BASIC_AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "turbostat-exporter.basicAuthSecretName" . }}
+                  key: {{ include "turbostat-exporter.basicAuthSecretKey" . }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: msr
+              mountPath: /dev/cpu
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: msr
+          hostPath:
+            path: {{ .Values.msrHostPath }}
+            type: Directory
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

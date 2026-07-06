@@ -19,15 +19,15 @@ import (
 )
 
 var (
-	Version                                = "development"
-	defaultSleepTimer        time.Duration = 5 * time.Second
-	isCommandCat                           = false
-	isBackgroundMode                       = true
-	backgroundCollectSeconds time.Duration = 60 * time.Second
-	basicAuthUsername        string
-	basicAuthPassword        string
-	basicAuthEnabled         = false
-	listenAddr               = "0.0.0.0:9101"
+	Version                   = "development"
+	defaultSleepTimer         = 5 * time.Second
+	isCommandCat              = false
+	isBackgroundMode          = true
+	backgroundCollectInterval = 60 * time.Second
+	basicAuthUsername         string
+	basicAuthPassword         string
+	basicAuthEnabled          = false
+	listenAddr                = "0.0.0.0:9101"
 )
 
 func main() {
@@ -94,7 +94,7 @@ func startServer(ctx context.Context, updateFunc func(time.Duration)) {
 
 	if isBackgroundMode {
 		log.Debug().Msgf("Starting ticker")
-		ticker := time.NewTicker(backgroundCollectSeconds)
+		ticker := time.NewTicker(backgroundCollectInterval)
 
 		go func() {
 			updateFunc(defaultSleepTimer)
@@ -125,7 +125,15 @@ func startServer(ctx context.Context, updateFunc func(time.Duration)) {
 
 	http.Handle("/metrics", metricsHandler)
 	log.Info().Msgf("Starting server on %s", listenAddr)
-	log.Fatal().Err(http.ListenAndServe(listenAddr, nil)).Msg("")
+	server := &http.Server{
+		Addr:              listenAddr,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		// In non-background mode each request runs turbostat synchronously for
+		// defaultSleepTimer, so the write deadline must cover that plus overhead.
+		WriteTimeout: defaultSleepTimer + 30*time.Second,
+	}
+	log.Fatal().Err(server.ListenAndServe()).Msg("")
 }
 
 func executeProgram(collectTimeSeconds int) (string, error) {
@@ -156,7 +164,13 @@ func executeProgram(collectTimeSeconds int) (string, error) {
 }
 
 func parseConfiguration() {
-	godotenv.Load()
+	if err := godotenv.Load(); err != nil {
+		if os.IsNotExist(err) {
+			log.Debug().Msg("No .env file found, relying on process environment")
+		} else {
+			log.Warn().Err(err).Msg("Failed to load .env file, relying on process environment")
+		}
+	}
 
 	if val, ok := os.LookupEnv("TURBOSTAT_EXPORTER_LOG_LEVEL"); ok {
 		level, err := zerolog.ParseLevel(val)
@@ -196,14 +210,14 @@ func parseConfiguration() {
 
 	if val, ok := os.LookupEnv("TURBOSTAT_COLLECT_IN_BACKGROUND_INTERVAL"); ok {
 		if convertVal, err := strconv.Atoi(val); err == nil && convertVal > 0 {
-			backgroundCollectSeconds = time.Duration(convertVal) * time.Second
+			backgroundCollectInterval = time.Duration(convertVal) * time.Second
 		} else {
-			log.Warn().Msgf("TURBOSTAT_COLLECT_IN_BACKGROUND_INTERVAL must be a positive integer. Using default: %s", backgroundCollectSeconds)
+			log.Warn().Msgf("TURBOSTAT_COLLECT_IN_BACKGROUND_INTERVAL must be a positive integer. Using default: %s", backgroundCollectInterval)
 		}
 	}
 
 	if isBackgroundMode {
-		log.Info().Msgf("Running collector in background with interval %s.", backgroundCollectSeconds)
+		log.Info().Msgf("Running collector in background with interval %s.", backgroundCollectInterval)
 	} else {
 		log.Info().Msgf("Running collector in active mode (on request will execute turbostat)")
 	}

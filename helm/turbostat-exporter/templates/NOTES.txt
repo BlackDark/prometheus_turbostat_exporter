@@ -1,0 +1,23 @@
+turbostat-exporter is deployed as a DaemonSet and should now be running on
+every node in the cluster (subject to any nodeSelector/tolerations/affinity
+you configured).
+
+Metrics are available at:
+
+  http://{{ include "turbostat-exporter.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}/metrics
+
+To check pods on each node:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l "{{ include "turbostat-exporter.selectorLabels" . | replace "\n" "," }}" -o wide
+
+{{- if not .Values.serviceMonitor.enabled }}
+
+serviceMonitor.enabled is false. If you use prometheus-operator, set
+serviceMonitor.enabled=true to have it scraped automatically. Otherwise,
+point your Prometheus scrape config at the Service above.
+{{- end }}
+
+This chart runs the container as root with only the SYS_RAWIO/SYS_ADMIN
+Linux capabilities (not --privileged) because turbostat needs to read
+/dev/cpu/*/msr on the host. See the chart README for details and for how to
+reduce this further if your hosts allow it.

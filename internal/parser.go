@@ -45,7 +45,7 @@ func (p *TurbostatParser) SetupColumnParsers(headers []string) {
 	}
 
 	if headers[col] == "CPU" {
-		parsers = append(parsers, func(r *TurbostatRow, c string) { r.Cpu = c })
+		parsers = append(parsers, func(r *TurbostatRow, c string) { r.CPU = c })
 		col++
 	}
 
@@ -54,11 +54,11 @@ func (p *TurbostatParser) SetupColumnParsers(headers []string) {
 	}
 
 	for ; col < len(headers) && headers[col] != "POLL%"; col++ {
-		parsers = append(parsers, p.createColumnParser(func(r *TurbostatRow) map[string]float64 { return r.CpuStates }, headers[col]))
+		parsers = append(parsers, p.createColumnParser(func(r *TurbostatRow) map[string]float64 { return r.CPUStates }, headers[col]))
 	}
 
 	for ; col < len(headers) && !strings.HasPrefix(headers[col], "CPU"); col++ {
-		parsers = append(parsers, p.createColumnParser(func(r *TurbostatRow) map[string]float64 { return r.CpuStatesPercent }, headers[col]))
+		parsers = append(parsers, p.createColumnParser(func(r *TurbostatRow) map[string]float64 { return r.CPUStatesPercent }, headers[col]))
 	}
 
 	for ; col < len(headers) && !strings.HasPrefix(headers[col], "Core"); col++ {
@@ -100,9 +100,8 @@ func (p *TurbostatParser) createColumnParser(mapper func(r *TurbostatRow) map[st
 func (p *TurbostatParser) createDefaultColumnParser(header string) columnParseFunc {
 	if strings.Contains(header, "%") {
 		return p.createColumnParser(func(r *TurbostatRow) map[string]float64 { return r.OtherPercent }, header)
-	} else {
-		return p.createColumnParser(func(r *TurbostatRow) map[string]float64 { return r.Other }, header)
 	}
+	return p.createColumnParser(func(r *TurbostatRow) map[string]float64 { return r.Other }, header)
 }
 
 func (p *TurbostatParser) ParseRow(rowData []string) (*TurbostatRow, error) {
@@ -242,11 +241,11 @@ func (p *TurbostatParser) ParseRowSimple(category string, headers []string, row 
 		if headers[0] == "Package" {
 			tr.Pkg = row[0]
 			tr.Core = row[1]
-			tr.Cpu = row[2]
+			tr.CPU = row[2]
 			col = 3
 		} else {
 			tr.Core = row[0]
-			tr.Cpu = row[1]
+			tr.CPU = row[1]
 			col = 2
 		}
 	}

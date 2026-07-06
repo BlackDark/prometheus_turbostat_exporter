@@ -1,0 +1,17 @@
+apiVersion: v2
+name: turbostat-exporter
+description: Prometheus exporter for turbostat CPU/core hardware metrics, deployed as a DaemonSet.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+home: https://github.com/BlackDark/prometheus_turbostat_exporter
+sources:
+  - https://github.com/BlackDark/prometheus_turbostat_exporter
+keywords:
+  - prometheus
+  - exporter
+  - turbostat
+  - cpu
+maintainers:
+  - name: BlackDark
+    url: https://github.com/BlackDark

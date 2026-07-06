@@ -1,0 +1,98 @@
+# Default values for turbostat-exporter.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/blackdark/prometheus_turbostat_exporter
+  # Defaults to .Chart.AppVersion when empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Port turbostat-exporter listens on, and the Service's target port.
+containerPort: 9101
+
+# -- TURBOSTAT_EXPORTER_LOG_LEVEL
+logLevel: info
+
+# -- TURBOSTAT_EXPORTER_DEFAULT_COLLECT_SECONDS: how long turbostat samples
+# for, either on each /metrics request (background.enabled: false) or before
+# each background tick (background.enabled: true).
+defaultCollectSeconds: 5
+
+background:
+  # -- TURBOSTAT_COLLECT_IN_BACKGROUND
+  enabled: true
+  # -- TURBOSTAT_COLLECT_IN_BACKGROUND_INTERVAL
+  intervalSeconds: 60
+
+basicAuth:
+  # -- TURBOSTAT_BASIC_AUTH_ENABLED
+  enabled: false
+  username: ""
+  # Plaintext password, stored in a Secret this chart creates. Prefer
+  # existingSecret for anything beyond local testing.
+  password: ""
+  # -- Name of an existing Secret to read the password from instead of
+  # basicAuth.password. Must contain the key named by existingSecretKey.
+  existingSecret: ""
+  existingSecretKey: password
+
+# -- Extra environment variables appended to the container, e.g. for
+# TURBOSTAT_EXPORTER_DEBUG_CAT_EXEC during testing.
+extraEnv: []
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+updateStrategy:
+  type: RollingUpdate
+
+podAnnotations: {}
+podLabels: {}
+
+# hostPath on the node that provides the MSR device files turbostat reads.
+msrHostPath: /dev/cpu
+
+# See README.md for why these are the defaults: turbostat needs to read
+# /dev/cpu/*/msr, which is root:root 0600 on stock kernels, and the kernel's
+# msr driver additionally requires CAP_SYS_RAWIO to open it regardless of
+# UID. This is already a large reduction from the `docker run --privileged`
+# used for plain Docker deployments.
+securityContext:
+  privileged: false
+  runAsUser: 0
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  seccompProfile:
+    type: RuntimeDefault
+  capabilities:
+    drop: ["ALL"]
+    add: ["SYS_RAWIO", "SYS_ADMIN"]
+
+serviceAccount:
+  # -- This chart's ServiceAccount is never granted any Role/ClusterRole -
+  # the app never calls the Kubernetes API. It exists only so
+  # automountServiceAccountToken can be explicitly disabled.
+  create: true
+  name: ""
+  annotations: {}
+
+service:
+  type: ClusterIP
+  port: 9101
+  annotations: {}
+
+# Requires the prometheus-operator CRDs installed in the cluster.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: ""
+  labels: {}
+  relabelings: []
+  metricRelabelings: []

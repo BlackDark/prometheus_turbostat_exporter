@@ -17,9 +17,9 @@ type TurbostatExporter struct {
 
 func NewTurbostatExporter() *TurbostatExporter {
 	labelsTotal := []string{"type"}
-	labelsPackage := append(labelsTotal, "package")
-	labelsCore := append(labelsPackage, "core")
-	labelsCpu := append(labelsCore, "cpu")
+	labelsPackage := []string{"type", "package"}
+	labelsCore := []string{"type", "package", "core"}
+	labelsCPU := []string{"type", "package", "core", "cpu"}
 
 	exporter := &TurbostatExporter{
 		packages: prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -40,7 +40,7 @@ func NewTurbostatExporter() *TurbostatExporter {
 		}, labelsCore),
 		cpusPercent: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "turbostat_cpus_percent",
-		}, labelsCpu),
+		}, labelsCPU),
 		totalPercent: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "turbostat_total_percent",
 			Help: "Metrics for the whole system in percentages. First line in output.",
@@ -100,10 +100,10 @@ func (e *TurbostatExporter) Update(rows []TurbostatRow) {
 			}
 		case "cpu":
 			for t, v := range row.Other {
-				e.cpus.With(prometheus.Labels{"package": row.Pkg, "core": row.Core, "cpu": row.Cpu, "type": sanitizeHeader(t)}).Set(v)
+				e.cpus.With(prometheus.Labels{"package": row.Pkg, "core": row.Core, "cpu": row.CPU, "type": sanitizeHeader(t)}).Set(v)
 			}
 			for t, v := range row.OtherPercent {
-				e.cpusPercent.With(prometheus.Labels{"package": row.Pkg, "core": row.Core, "cpu": row.Cpu, "type": sanitizeHeader(t)}).Set(v)
+				e.cpusPercent.With(prometheus.Labels{"package": row.Pkg, "core": row.Core, "cpu": row.CPU, "type": sanitizeHeader(t)}).Set(v)
 			}
 		case "total":
 			for t, v := range row.Other {
