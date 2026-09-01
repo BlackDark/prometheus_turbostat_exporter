@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'main.Version=${BUILD_VERSION
 # package with an older turbostat that doesn't recognize newer CPU
 # generations. This trades reproducible package versions for turbostat
 # currency; the base image itself is still pinned by digest below.
-FROM debian:sid-slim@sha256:76b6251aaac0ebb6aca1afbc780717aab7e455038c07cb0cb23facb33d241c7d
+FROM debian:sid-slim@sha256:17d1843dae9ca66f1617c1e464f40d06059ccefb0c606e8b54687f253af1684e
 
 RUN <<EOF
     set -eu
