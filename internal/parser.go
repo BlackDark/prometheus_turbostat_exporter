@@ -339,8 +339,8 @@ func ParseTurbostatOutput(raw string) ([]string, [][]string, error) {
 	var headers []string
 	var rows [][]string
 
-	lines := strings.Split(raw, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(raw, "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
