@@ -72,7 +72,7 @@ func createUpdateFunc(parser *internal.TurbostatParser, exporter *internal.Turbo
 		// Debug: print how many rows are in each category
 		for _, cat := range []string{"package", "core", "cpu", "total"} {
 			catRows := parsedRows[cat]
-			extractedCategories.WriteString(fmt.Sprintf("%s: %d, ", cat, len(catRows)))
+			fmt.Fprintf(&extractedCategories, "%s: %d, ", cat, len(catRows))
 		}
 
 		log.Debug().Msgf("%s", extractedCategories.String())
