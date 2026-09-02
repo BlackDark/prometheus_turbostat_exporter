@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -66,14 +67,15 @@ func createUpdateFunc(parser *internal.TurbostatParser, exporter *internal.Turbo
 
 		parsedRows := parser.ParseRowsSimple(headers, rows)
 
-		extractedCategories := "Categories found - "
+		var extractedCategories strings.Builder
+		extractedCategories.WriteString("Categories found - ")
 		// Debug: print how many rows are in each category
 		for _, cat := range []string{"package", "core", "cpu", "total"} {
 			catRows := parsedRows[cat]
-			extractedCategories += fmt.Sprintf("%s: %d, ", cat, len(catRows))
+			extractedCategories.WriteString(fmt.Sprintf("%s: %d, ", cat, len(catRows)))
 		}
 
-		log.Debug().Msgf("%s", extractedCategories)
+		log.Debug().Msgf("%s", extractedCategories.String())
 
 		// Collect all rows from all categories
 		allRows := make([]internal.TurbostatRow, 0)
