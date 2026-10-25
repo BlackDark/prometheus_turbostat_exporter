@@ -94,3 +94,13 @@ jobs:
           if ! gh release create "$tag" --generate-notes turbostat-exporter-*; then
             gh release upload "$tag" turbostat-exporter-* --clobber
           fi
+
+
+  check:
+    if: always()
+    needs: [lint, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
