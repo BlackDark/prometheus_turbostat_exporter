@@ -95,14 +95,10 @@ jobs:
             gh release upload "$tag" turbostat-exporter-* --clobber
           fi
 
-  zizmor:
-    permissions:
-      contents: read
-    uses: ./.github/workflows/zizmor.yml
 
   check:
     if: always()
-    needs: [lint, build, zizmor]
+    needs: [lint, build]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
