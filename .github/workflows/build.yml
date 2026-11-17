@@ -125,7 +125,7 @@ jobs:
         with:
           install_args: actionlint
           cache_save: ${{ github.workflow == 'CI' && github.ref == 'refs/heads/main' && github.event_name == 'push' }}
-      - run: mise exec -- actionlint -color
+      - run: actionlint -color
 
   renovate-config:
     needs: changes
