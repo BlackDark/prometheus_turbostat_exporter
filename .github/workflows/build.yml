@@ -39,18 +39,17 @@ jobs:
             { echo "code=true"; echo "lint=true"; } >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          changed=$(git diff --no-renames --name-only -z HEAD^1 HEAD | xargs -0 -n1 printf '%s\n')
-          code=false
-          lint=false
-          while IFS= read -r f; do
-            case "$f" in
+          git diff --no-renames --name-only -z HEAD^1 HEAD > "$RUNNER_TEMP/changed-paths"
+          code=false; lint=false
+          while IFS= read -r -d '' path; do
+            case "$path" in
               docs/* | *.md | LICENSE) ;;
               .github/workflows/build.yml) code=true; lint=true ;;
-              mise.toml | .mise.toml | mise.lock | .mise.lock) code=true; lint=true ;;
+              mise.toml | .mise.toml | mise.lock | .mise.lock | .config/mise* | mise/* | .mise/*) code=true; lint=true ;;
               .github/* | renovate.json | renovate.json5) lint=true ;;
               *) code=true ;;
             esac
-          done <<< "$changed"
+          done < "$RUNNER_TEMP/changed-paths"
           { echo "code=$code"; echo "lint=$lint"; } >> "$GITHUB_OUTPUT"
 
   lint:
