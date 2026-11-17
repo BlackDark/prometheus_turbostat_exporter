@@ -1,81 +1,104 @@
-name: Go
+name: CI
 
 on:
   push:
-  pull_request: # Trigger on pull requests
+    branches: [main]
+    tags: ["v*.*.*"] # Release step attaches binaries on tag pushes
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # renovate: datasource=npm depName=renovate
+  RENOVATE_VERSION: "44.221.1"
+
 jobs:
-  lint:
+  changes:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.areas.outputs.code }}
+      lint: ${{ steps.areas.outputs.lint }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - id: areas
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
+            { echo "code=true"; echo "lint=true"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --no-renames --name-only -z HEAD^1 HEAD | xargs -0 -n1 printf '%s\n')
+          code=false
+          lint=false
+          while IFS= read -r f; do
+            case "$f" in
+              docs/* | *.md | LICENSE) ;;
+              .github/workflows/build.yml) code=true; lint=true ;;
+              mise.toml | .mise.toml | mise.lock | .mise.lock) code=true; lint=true ;;
+              .github/* | renovate.json | renovate.json5) lint=true ;;
+              *) code=true ;;
+            esac
+          done <<< "$changed"
+          { echo "code=$code"; echo "lint=$lint"; } >> "$GITHUB_OUTPUT"
+
+  lint:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9 # zizmor: ignore[cache-poisoning] saves only on main push
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: go.sum
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-        with:
-          version: v2.15.0
+          cache_save: ${{ github.workflow == 'CI' && github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+      - run: mise run check
 
   build:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    # contents: write is only needed here (not workflow-wide) so the Release
-    # step below can attach binaries to a GitHub Release on tag pushes.
+    # contents: write is only used by the tag-only Release step below.
     permissions:
       contents: write
     strategy:
       matrix:
         goos: [linux]
         goarch: [amd64, arm64]
-
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Inject slug/short variables
-        uses: rlespinasse/github-slug-action@0e3299190dac9a700da92a90de4556116ea965ed # v5.7.1
+      - uses: rlespinasse/github-slug-action@0e3299190dac9a700da92a90de4556116ea965ed # v5.7.1
         with:
-          short-length: 8 # Same as v3 and before
-
-      - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+          short-length: 8
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9 # zizmor: ignore[cache-poisoning] saves only on main push
         with:
-          go-version: "1.27.3"
-          cache-dependency-path: go.sum
-          cache: false
-      # You can test your matrix by printing the current Go version
-      - name: Display Go version
-        run: go version
-      - name: Install dependencies
-        run: go get .
+          install_args: go
+          cache_save: ${{ github.workflow == 'CI' && github.ref == 'refs/heads/main' && github.event_name == 'push' }}
       - name: Build
         run: |
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="-X 'main.Version=${GITHUB_REF_SLUG}'" -o turbostat-exporter-${{ matrix.goos }}-${{ matrix.goarch }}
           chmod +x turbostat-exporter-${{ matrix.goos }}-${{ matrix.goarch }}
-      # - name: Archive binaries
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: turbostat-exporter-${{ matrix.goos }}-${{ matrix.goarch }}
-      #     path: turbostat-exporter-${{ matrix.goos }}-${{ matrix.goarch }}
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.event_name == 'pull_request' # Conditionally upload on PRs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name == 'pull_request'
         with:
           name: turbostat-exporter-${{ matrix.goos }}-${{ matrix.goarch }}
           path: turbostat-exporter-${{ matrix.goos }}-${{ matrix.goarch }}
-          retention-days: 7 # Specify retention period
-
+          retention-days: 7
       - name: Release
         # Match only the app's v*.*.* tags, not helm-vX.Y.Z chart-release
         # tags (see .github/workflows/helm.yml) - both would otherwise
@@ -87,18 +110,58 @@ jobs:
         run: |
           set -euo pipefail
           tag="${GITHUB_REF#refs/tags/}"
-          # Matrix jobs run in parallel: whichever job's `release create` wins
-          # creates the release with its own binary attached; the other job's
-          # `create` fails because the release now exists, so it falls back to
-          # uploading its binary into the release the first job just made.
           if ! gh release create "$tag" --generate-notes turbostat-exporter-*; then
             gh release upload "$tag" turbostat-exporter-* --clobber
           fi
 
+  actionlint:
+    needs: changes
+    if: needs.changes.outputs.lint == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9 # zizmor: ignore[cache-poisoning] saves only on main push
+        with:
+          install_args: actionlint
+          cache_save: ${{ github.workflow == 'CI' && github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+      - run: actionlint -color
+
+  renovate-config:
+    needs: changes
+    if: needs.changes.outputs.lint == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26.13.1
+          package-manager-cache: false
+      - run: npx --yes --package "renovate@${RENOVATE_VERSION}" -- renovate-config-validator --strict
+
+  zizmor:
+    needs: changes
+    if: needs.changes.outputs.lint == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          inputs: .github/workflows
+          advanced-security: false
+          annotations: true
 
   check:
     if: always()
-    needs: [lint, build]
+    needs: [changes, lint, build, actionlint, renovate-config, zizmor]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

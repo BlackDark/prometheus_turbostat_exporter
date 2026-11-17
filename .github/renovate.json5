@@ -1,45 +1,20 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
-    "config:recommended",
-    "customManagers:githubActionsVersions",
-    "schedule:monthly",
-    ":prConcurrentLimitNone",
-    ":prHourlyLimitNone",
+    "github>blackdark/renovate-base//default.json5",
+    "github>blackdark/renovate-base//go.json5",
     ":pinVersions",
   ],
-  // remove examples from ignore path
-  ignorePaths: [
-    "**/node_modules/**",
-    "**/bower_components/**",
-    "**/vendor/**",
-    "**/__tests__/**",
-    "**/test/**",
-    "**/tests/**",
-    "**/__fixtures__/**",
-  ],
-  labels: ["dependencies"],
+  rebaseWhen: "behind-base-branch",
+  separateMultipleMajor: true,
+  postUpdateOptions: ["gomodTidy", "gomodUpdateImportPaths"],
   packageRules: [
     {
-      matchUpdateTypes: ["minor", "patch", "pin"],
-      automerge: true,
-      addLabels: ["automerge"],
-    },
-    {
-      groupName: "devDependencies (non-major)",
-      matchDepTypes: ["devDependencies"],
-      matchUpdateTypes: ["patch", "minor"],
-    },
-    {
-      groupName: "dependencies (non-major)",
-      matchDepTypes: ["dependencies"],
-      matchUpdateTypes: ["patch", "minor"],
-    },
-    {
-      matchDatasources: ["docker"],
-      matchUpdateTypes: ["minor", "patch"],
-      groupName: "all docker updates (without major)",
-      groupSlug: "all-docker",
+      description: "Majors: one PR each, merged by hand",
+      groupName: null,
+      matchUpdateTypes: ["major"],
+      addLabels: ["major"],
+      automerge: false,
     },
   ],
 }

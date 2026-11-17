@@ -1,0 +1,18 @@
+[tools]
+actionlint = "1.7.12"
+go = "1.27.3"
+golangci-lint = "2.15.0"
+zizmor = "1.32.0"
+
+[tasks.check]
+description = "Format, vet, lint, and test"
+run = [
+  "test -z \"$(gofmt -l .)\"",
+  "go vet ./...",
+  "golangci-lint run ./...",
+  "go test ./...",
+]
+
+[tasks.zizmor]
+description = "Audit GitHub Actions workflows"
+run = "zizmor .github/workflows"
