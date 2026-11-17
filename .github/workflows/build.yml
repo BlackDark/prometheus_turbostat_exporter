@@ -39,7 +39,7 @@ jobs:
             { echo "code=true"; echo "lint=true"; } >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          changed=$(git diff --no-renames --name-only HEAD^1 HEAD)
+          changed=$(git diff --no-renames --name-only -z HEAD^1 HEAD | xargs -0 -n1 printf '%s\n')
           code=false
           lint=false
           while IFS= read -r f; do
@@ -124,7 +124,7 @@ jobs:
           persist-credentials: false
       - run: |
           bash <(curl -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash") "$ACTIONLINT_VERSION"
-          ./actionlint -color .github/workflows/*.yml
+          ./actionlint -color
 
   renovate-config:
     needs: changes
@@ -135,6 +135,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26.13.1
+          package-manager-cache: false
       - run: npx --yes --package "renovate@${RENOVATE_VERSION}" -- renovate-config-validator --strict
 
   zizmor:
