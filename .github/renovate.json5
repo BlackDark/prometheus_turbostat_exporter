@@ -3,6 +3,7 @@
   extends: [
     "github>blackdark/renovate-base//default.json5",
     "github>blackdark/renovate-base//go.json5",
+    ":pinVersions",
   ],
   rebaseWhen: "behind-base-branch",
   separateMultipleMajor: true,
