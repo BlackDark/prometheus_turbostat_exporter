@@ -129,19 +129,46 @@ func (p *TurbostatParser) ParseRows(inputRows [][]string) ([]TurbostatRow, error
 	return rows, nil
 }
 
+// topologyColumns are the leading identifier columns turbostat prints before
+// any counter; which ones appear depends on the turbostat version and system.
+var topologyColumns = map[string]bool{
+	"Package": true,
+	"Die":     true,
+	"L3":      true,
+	"Node":    true,
+	"Module":  true,
+	"Core":    true,
+	"CPU":     true,
+	"APIC":    true,
+	"X2APIC":  true,
+}
+
 // isTurbostatHeaderLine checks whether fields look like a genuine turbostat
-// header row. Every turbostat header starts with "Package", "Core", or "CPU"
-// depending on the system topology (see SetupColumnParsers).
+// header row, which always starts with a topology column.
 func isTurbostatHeaderLine(fields []string) bool {
-	if len(fields) == 0 {
-		return false
+	return len(fields) > 0 && topologyColumns[fields[0]]
+}
+
+func countTopologyColumns(headers []string) int {
+	n := 0
+	for n < len(headers) && topologyColumns[headers[n]] {
+		n++
 	}
-	switch fields[0] {
-	case "Package", "Core", "CPU":
-		return true
-	default:
-		return false
+	return n
+}
+
+// normalizeTopologyID keeps label values stable across turbostat versions:
+// turbostat 2026.04.21+ prints Core (and Module) IDs as "0x%x" instead of "%d".
+func normalizeTopologyID(id string) string {
+	hex, ok := strings.CutPrefix(id, "0x")
+	if !ok {
+		return id
 	}
+	v, err := strconv.ParseUint(hex, 16, 64)
+	if err != nil {
+		return id
+	}
+	return strconv.FormatUint(v, 10)
 }
 
 func sanitizeHeader(h string) string {
@@ -234,19 +261,18 @@ func (p *TurbostatParser) ParseRowSimple(category string, headers []string, row 
 	tr := NewTurbostatRow()
 	tr.Category = category
 
-	// Use headers for key mapping
-	col := 0
+	col := countTopologyColumns(headers)
 
 	if category != "total" {
-		if headers[0] == "Package" {
-			tr.Pkg = row[0]
-			tr.Core = row[1]
-			tr.CPU = row[2]
-			col = 3
-		} else {
-			tr.Core = row[0]
-			tr.CPU = row[1]
-			col = 2
+		for i := 0; i < col && i < len(row); i++ {
+			switch headers[i] {
+			case "Package":
+				tr.Pkg = normalizeTopologyID(row[i])
+			case "Core":
+				tr.Core = normalizeTopologyID(row[i])
+			case "CPU":
+				tr.CPU = normalizeTopologyID(row[i])
+			}
 		}
 	}
 
@@ -258,7 +284,7 @@ func (p *TurbostatParser) ParseRowSimple(category string, headers []string, row 
 
 	for i := col; i < len(row); i++ {
 		val, err := strconv.ParseFloat(row[i], 64)
-		if err != nil {
+		if err != nil || math.IsNaN(val) {
 			continue
 		}
 		// round to 2 decimal places
