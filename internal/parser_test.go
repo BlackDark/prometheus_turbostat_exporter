@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// its an i5-12500 so, it has 1 package, 14 cores, 20 cpus
+// its an i7-8700T so, it has 1 package, 6 cores, 12 cpus
 func TestParseRows_SinglePackage(t *testing.T) {
 	parser := NewTurbostatParser()
 
@@ -17,7 +17,6 @@ func TestParseRows_SinglePackage(t *testing.T) {
 	}
 
 	headers, rows, err := ParseTurbostatOutput(string(content))
-
 	if err != nil {
 		t.Errorf("expected parsing prox.tsv to succeed, got error: %v", err)
 		return
@@ -31,11 +30,11 @@ func TestParseRows_SinglePackage(t *testing.T) {
 	if len(categorized["package"]) != 1 {
 		t.Errorf("expected 2 package row, got %d", len(categorized["package"]))
 	}
-	if len(categorized["core"]) != 14 {
-		t.Errorf("expected 16 core rows, got %d", len(categorized["core"]))
+	if len(categorized["core"]) != 6 {
+		t.Errorf("expected 6 core rows, got %d", len(categorized["core"]))
 	}
-	if len(categorized["cpu"]) != 20 {
-		t.Errorf("expected 32 cpu row, got %d", len(categorized["cpu"]))
+	if len(categorized["cpu"]) != 12 {
+		t.Errorf("expected 12 cpu row, got %d", len(categorized["cpu"]))
 	}
 
 	// Check that percent columns are only in OtherPercent
@@ -62,7 +61,6 @@ func TestParseRows_SandyBridge(t *testing.T) {
 	}
 
 	headers, rows, err := ParseTurbostatOutput(string(content))
-
 	if err != nil {
 		t.Errorf("expected parsing sandy-bridge.tsv to succeed, got error: %v", err)
 		return
@@ -111,8 +109,8 @@ func TestParseRows_Empty(t *testing.T) {
 func TestParseRows_SingleRow(t *testing.T) {
 	parser := NewTurbostatParser()
 
-	headers := []string{"Package", "Core", "CPU", "Bzy_MHz"}
-	rows := [][]string{{"0", "0", "0", "2000"}}
+	headers := []string{"Module", "Package", "Core", "CPU", "Bzy_MHz"}
+	rows := [][]string{{"0", "0", "0", "0", "2000"}}
 	categorized := parser.ParseRowsSimple(headers, rows)
 	if len(categorized["cpu"]) != 1 {
 		t.Errorf("expected 1 cpu row, got %d", len(categorized["cpu"]))
@@ -125,16 +123,15 @@ func TestParseRows_SingleRow(t *testing.T) {
 // stdout+stderr, so that sentence must not be mistaken for the turbostat header.
 func TestParseOutput_PrivilegeWarningBeforeHeader(t *testing.T) {
 	headers, rows, err := ParseTurbostatOutput(`Some of the counters may not be available to access /dev/cpu/0/msr.
-Core	CPU	Avg_MHz	Busy%
--	-	125	6.57
-0	0	80	9.91
+Module Core	CPU	Avg_MHz	Busy%
+-	-	-	125	6.57
+0	0	0	80	9.91
 `)
-
 	if err != nil {
 		t.Fatalf("expected parsing turbostat output to succeed, got error: %v", err)
 	}
 
-	wantHeaders := []string{"Core", "CPU", "Avg_MHz", "Busy%"}
+	wantHeaders := []string{"Module", "Core", "CPU", "Avg_MHz", "Busy%"}
 	if len(headers) != len(wantHeaders) {
 		t.Fatalf("expected headers %v, got %v", wantHeaders, headers)
 	}
@@ -151,11 +148,10 @@ Core	CPU	Avg_MHz	Busy%
 
 func TestParseOutput_RealWithSeconds(t *testing.T) {
 	headers, rows, err := ParseTurbostatOutput(`0.007923 sec
-Core CPU Test
--	-	1
-0	0	1
+Module Core CPU Test
+-	-	-	1
+0	0	0	1
 `)
-
 	if err != nil {
 		t.Errorf("expected parsing turbostat output to succeed, got error: %v", err)
 	}
@@ -165,7 +161,7 @@ Core CPU Test
 		return
 	}
 
-	if len(headers) != 3 {
-		t.Errorf("expected 3 headers, got %d", len(headers))
+	if len(headers) != 4 {
+		t.Errorf("expected 4 headers, got %d", len(headers))
 	}
 }

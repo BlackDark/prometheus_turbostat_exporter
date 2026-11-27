@@ -4,6 +4,7 @@ import "maps"
 
 type TurbostatRow struct {
 	Pkg               string
+	Module            string
 	Core              string
 	CPU               string
 	CoreStatesPercent map[string]float64
@@ -33,6 +34,7 @@ func (r *TurbostatRow) CloneWithCategory(category string) *TurbostatRow {
 	}
 	clone := &TurbostatRow{
 		Pkg:               r.Pkg,
+		Module:            r.Module,
 		Core:              r.Core,
 		CPU:               r.CPU,
 		CoreStatesPercent: make(map[string]float64, len(r.CoreStatesPercent)),

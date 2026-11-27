@@ -39,6 +39,11 @@ func (p *TurbostatParser) SetupColumnParsers(headers []string) {
 		col++
 	}
 
+	if headers[col] == "Module" {
+		parsers = append(parsers, func(r *TurbostatRow, c string) { r.Module = c })
+		col++
+	}
+
 	if headers[col] == "Core" {
 		parsers = append(parsers, func(r *TurbostatRow, c string) { r.Core = c })
 		col++
@@ -137,7 +142,7 @@ func isTurbostatHeaderLine(fields []string) bool {
 		return false
 	}
 	switch fields[0] {
-	case "Package", "Core", "CPU":
+	case "Package", "Module", "Core", "CPU":
 		return true
 	default:
 		return false
@@ -239,15 +244,17 @@ func (p *TurbostatParser) ParseRowSimple(category string, headers []string, row 
 
 	if category != "total" {
 		if headers[0] == "Package" {
-			tr.Pkg = row[0]
-			tr.Core = row[1]
-			tr.CPU = row[2]
-			col = 3
-		} else {
-			tr.Core = row[0]
-			tr.CPU = row[1]
-			col = 2
+			tr.Pkg = row[col]
+			col++
 		}
+		// Remove this check when all linux kernels ship turbostat with this column
+		if headers[col] == "Module" {
+			tr.Module = row[col]
+			col++
+		}
+		tr.Core = row[col]
+		tr.CPU = row[col+1]
+		col += 2
 	}
 
 	var (
