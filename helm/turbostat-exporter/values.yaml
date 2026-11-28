@@ -6,7 +6,7 @@ fullnameOverride: ""
 image:
   repository: ghcr.io/blackdark/prometheus_turbostat_exporter
   # Defaults to .Chart.AppVersion when empty.
-  tag: ""
+  tag: "@sha256:777c5a3c0af6f40822969da92e8975896b0d5fa2793b9274717ea6655550459f"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
